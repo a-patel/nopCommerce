@@ -14,12 +14,9 @@ namespace Nop.Services.Shipping
     {
         #region Ctor
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
         public GetShippingOptionRequest()
         {
-            this.Items = new List<PackageItem>();
+            Items = new List<PackageItem>();
         }
 
         #endregion
@@ -45,26 +42,32 @@ namespace Nop.Services.Shipping
         /// Shipped from warehouse
         /// </summary>
         public Warehouse WarehouseFrom { get; set; }
+
         /// <summary>
         /// Shipped from country
         /// </summary>
         public Country CountryFrom { get; set; }
+
         /// <summary>
         /// Shipped from state/province
         /// </summary>
         public StateProvince StateProvinceFrom { get; set; }
+
         /// <summary>
         /// Shipped from zip/postal code
         /// </summary>
         public string ZipPostalCodeFrom { get; set; }
+
         /// <summary>
         /// Shipped from county
         /// </summary>
         public string CountyFrom { get; set; }
+
         /// <summary>
         /// Shipped from city
         /// </summary>
         public string CityFrom { get; set; }
+
         /// <summary>
         /// Shipped from address
         /// </summary>
@@ -91,8 +94,8 @@ namespace Nop.Services.Shipping
             /// <param name="qty">Override "Quantity" property of shopping cart item</param>
             public PackageItem(ShoppingCartItem sci, int? qty = null)
             {
-                this.ShoppingCartItem = sci;
-                this.OverriddenQuantity = qty;
+                ShoppingCartItem = sci;
+                OverriddenQuantity = qty;
             }
 
             /// <summary>

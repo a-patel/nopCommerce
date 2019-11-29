@@ -2,9 +2,9 @@
 using System.Linq;
 using Nop.Services.Catalog;
 using Nop.Services.Topics;
-using Nop.Web.Areas.Admin.Extensions;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
 using Nop.Web.Areas.Admin.Models.Templates;
-using Nop.Web.Framework.Extensions;
+using Nop.Web.Framework.Models.Extensions;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -29,15 +29,34 @@ namespace Nop.Web.Areas.Admin.Factories
             IProductTemplateService productTemplateService,
             ITopicTemplateService topicTemplateService)
         {
-            this._categoryTemplateService = categoryTemplateService;
-            this._manufacturerTemplateService = manufacturerTemplateService;
-            this._productTemplateService = productTemplateService;
-            this._topicTemplateService = topicTemplateService;
+            _categoryTemplateService = categoryTemplateService;
+            _manufacturerTemplateService = manufacturerTemplateService;
+            _productTemplateService = productTemplateService;
+            _topicTemplateService = topicTemplateService;
         }
 
         #endregion
 
         #region Methods
+
+        /// <summary>
+        /// Prepare templates model
+        /// </summary>
+        /// <param name="model">Templates model</param>
+        /// <returns>Templates model</returns>
+        public virtual TemplatesModel PrepareTemplatesModel(TemplatesModel model)
+        {
+            if (model == null)
+                throw new ArgumentNullException(nameof(model));
+
+            //prepare nested search models
+            PrepareCategoryTemplateSearchModel(model.TemplatesCategory);
+            PrepareManufacturerTemplateSearchModel(model.TemplatesManufacturer);
+            PrepareProductTemplateSearchModel(model.TemplatesProduct);
+            PrepareTopicTemplateSearchModel(model.TemplatesTopic);
+
+            return model;
+        }
 
         /// <summary>
         /// Prepare category template search model
@@ -66,15 +85,11 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get category templates
-            var categoryTemplates = _categoryTemplateService.GetAllCategoryTemplates();
+            var categoryTemplates = _categoryTemplateService.GetAllCategoryTemplates().ToPagedList(searchModel);
 
             //prepare grid model
-            var model = new CategoryTemplateListModel
-            {
-                //fill in model values from the entity
-                Data = categoryTemplates.PaginationByRequestModel(searchModel).Select(template => template.ToModel()),
-                Total = categoryTemplates.Count
-            };
+            var model = new CategoryTemplateListModel().PrepareToGrid(searchModel, categoryTemplates,
+                () => categoryTemplates.Select(template => template.ToModel<CategoryTemplateModel>()));
 
             return model;
         }
@@ -106,16 +121,12 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get manufacturer templates
-            var manufacturerTemplates = _manufacturerTemplateService.GetAllManufacturerTemplates();
+            var manufacturerTemplates = _manufacturerTemplateService.GetAllManufacturerTemplates().ToPagedList(searchModel);
 
             //prepare grid model
-            var model = new ManufacturerTemplateListModel
-            {
-                //fill in model values from the entity
-                Data = manufacturerTemplates.PaginationByRequestModel(searchModel).Select(template => template.ToModel()),
-                Total = manufacturerTemplates.Count
-            };
-
+            var model = new ManufacturerTemplateListModel().PrepareToGrid(searchModel, manufacturerTemplates,
+                () => manufacturerTemplates.Select(template => template.ToModel<ManufacturerTemplateModel>()));
+            
             return model;
         }
 
@@ -146,15 +157,11 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get product templates
-            var productTemplates = _productTemplateService.GetAllProductTemplates();
+            var productTemplates = _productTemplateService.GetAllProductTemplates().ToPagedList(searchModel);
 
             //prepare grid model
-            var model = new ProductTemplateListModel
-            {
-                //fill in model values from the entity
-                Data = productTemplates.PaginationByRequestModel(searchModel).Select(template => template.ToModel()),
-                Total = productTemplates.Count
-            };
+            var model = new ProductTemplateListModel().PrepareToGrid(searchModel, productTemplates,
+                () => productTemplates.Select(template => template.ToModel<ProductTemplateModel>()));
 
             return model;
         }
@@ -186,15 +193,11 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get topic templates
-            var topicTemplates = _topicTemplateService.GetAllTopicTemplates();
+            var topicTemplates = _topicTemplateService.GetAllTopicTemplates().ToPagedList(searchModel);
 
             //prepare grid model
-            var model = new TopicTemplateListModel
-            {
-                //fill in model values from the entity
-                Data = topicTemplates.PaginationByRequestModel(searchModel).Select(template => template.ToModel()),
-                Total = topicTemplates.Count
-            };
+            var model = new TopicTemplateListModel().PrepareToGrid(searchModel, topicTemplates,
+                () => topicTemplates.Select(template => template.ToModel<TopicTemplateModel>()));
 
             return model;
         }

@@ -45,6 +45,18 @@ namespace Nop.Services.ExportImport.Help
         }
 
         /// <summary>
+        /// Add new property
+        /// </summary>
+        /// <param name="property">Property to add</param>
+        public void AddProperty(PropertyByName<T> property)
+        {
+            if (_properties.ContainsKey(property.PropertyName))
+                return;
+            
+            _properties.Add(property.PropertyName, property);
+        }
+
+        /// <summary>
         /// Export objects to XLSX
         /// </summary>
         /// <typeparam name="T">Type of object</typeparam>
@@ -106,15 +118,9 @@ namespace Nop.Services.ExportImport.Help
         /// </summary>
         /// <param name="propertyName">Property name</param>
         /// <returns>Property value</returns>
-        public object this[string propertyName]
-        {
-            get
-            {
-                return _properties.ContainsKey(propertyName) && CurrentObject != null
-                    ? _properties[propertyName].GetProperty(CurrentObject)
-                    : null;
-            }
-        }
+        public object this[string propertyName] => _properties.ContainsKey(propertyName) && CurrentObject != null
+            ? _properties[propertyName].GetProperty(CurrentObject)
+            : null;
 
         /// <summary>
         /// Remove object by property name
@@ -132,7 +138,7 @@ namespace Nop.Services.ExportImport.Help
         /// <param name="row">Row index</param>
         /// <param name="cellOffset">Cell offset</param>
         /// <param name="fWorksheet">Filters worksheet</param>
-        public virtual void WriteToXlsx(ExcelWorksheet worksheet, int row, int cellOffset = 0, ExcelWorksheet fWorksheet=null)
+        public virtual void WriteToXlsx(ExcelWorksheet worksheet, int row, int cellOffset = 0, ExcelWorksheet fWorksheet = null)
         {
             if (CurrentObject == null)
                 return;
@@ -151,14 +157,14 @@ namespace Nop.Services.ExportImport.Help
 
                     cell.Value = prop.GetItemText(prop.GetProperty(CurrentObject));
 
-                    if(!UseDropdownLists)
+                    if (!UseDropdownLists)
                         continue;
 
                     var validator = cell.DataValidation.AddListDataValidation();
                     
                     validator.AllowBlank = prop.AllowBlank;
 
-                    if(fWorksheet == null)
+                    if (fWorksheet == null)
                         continue;
 
                     var fRow = 1;
@@ -202,7 +208,7 @@ namespace Nop.Services.ExportImport.Help
         /// Write caption (first row) to XLSX worksheet
         /// </summary>
         /// <param name="worksheet">worksheet</param>
-        /// <param name="row">Row num</param>
+        /// <param name="row">Row number</param>
         /// <param name="cellOffset">Cell offset</param>
         public virtual void WriteCaption(ExcelWorksheet worksheet, int row = 1, int cellOffset = 0)
         {
@@ -211,20 +217,26 @@ namespace Nop.Services.ExportImport.Help
                 var cell = worksheet.Cells[row, caption.PropertyOrderPosition + cellOffset];
                 cell.Value = caption;
 
-                cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                cell.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(184, 204, 228));
-                cell.Style.Font.Bold = true;
+                SetCaptionStyle(cell);
                 cell.Style.Hidden = false;
             }
         }
 
         /// <summary>
+        /// Set caption style to excel cell
+        /// </summary>
+        /// <param name="cell">Excel cell</param>
+        public void SetCaptionStyle(ExcelRange cell)
+        {
+            cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            cell.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(184, 204, 228));
+            cell.Style.Font.Bold = true;
+        }
+
+        /// <summary>
         /// Count of properties
         /// </summary>
-        public int Count
-        {
-            get { return _properties.Count; }
-        }
+        public int Count => _properties.Count;
 
         /// <summary>
         /// Get property by name
@@ -239,10 +251,7 @@ namespace Nop.Services.ExportImport.Help
         /// <summary>
         /// Get property array
         /// </summary>
-        public PropertyByName<T>[] GetProperties
-        {
-            get { return _properties.Values.ToArray(); }
-        }
+        public PropertyByName<T>[] GetProperties => _properties.Values.ToArray();
 
         /// <summary>
         /// Set SelectList
@@ -267,9 +276,6 @@ namespace Nop.Services.ExportImport.Help
         /// <summary>
         /// Gets a value indicating whether need create dropdown list for export
         /// </summary>
-        public bool UseDropdownLists
-        {
-            get { return _catalogSettings.ExportImportUseDropdownlistsForAssociatedEntities && _catalogSettings.ExportImportRelatedEntitiesByName; }
-        }
+        public bool UseDropdownLists => _catalogSettings.ExportImportUseDropdownlistsForAssociatedEntities && _catalogSettings.ExportImportRelatedEntitiesByName;
     }
 }

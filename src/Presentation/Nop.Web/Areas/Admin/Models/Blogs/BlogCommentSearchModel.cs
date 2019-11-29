@@ -22,6 +22,8 @@ namespace Nop.Web.Areas.Admin.Models.Blogs
         #endregion
 
         #region Properties
+        
+        public int? BlogPostId { get; set; }
 
         [NopResourceDisplayName("Admin.ContentManagement.Blog.Comments.List.CreatedOnFrom")]
         [UIHint("DateNullable")]
@@ -37,7 +39,7 @@ namespace Nop.Web.Areas.Admin.Models.Blogs
         [NopResourceDisplayName("Admin.ContentManagement.Blog.Comments.List.SearchApproved")]
         public int SearchApprovedId { get; set; }
 
-        public IList<SelectListItem> AvailableApprovedOptions { get; set; }
+        public IList<SelectListItem> AvailableApprovedOptions { get; set; }        
 
         #endregion
     }

@@ -6,9 +6,11 @@ namespace Nop.Web.Areas.Admin.Models.Settings
     /// <summary>
     /// Represents a CAPTCHA settings model
     /// </summary>
-    public partial class CaptchaSettingsModel : BaseNopModel
+    public partial class CaptchaSettingsModel : BaseNopModel, ISettingsModel
     {
         #region Properties
+
+        public int ActiveStoreScopeConfiguration { get; set; }
 
         [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.CaptchaEnabled")]
         public bool Enabled { get; set; }
@@ -49,6 +51,14 @@ namespace Nop.Web.Areas.Admin.Models.Settings
         [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.CaptchaShowOnApplyVendorPage")]
         public bool ShowOnApplyVendorPage { get; set; }
         public bool ShowOnApplyVendorPage_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.CaptchaShowOnForgotPasswordPage")]
+        public bool ShowOnForgotPasswordPage { get; set; }
+        public bool ShowOnForgotPasswordPage_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.CaptchaShowOnForum")]
+        public bool ShowOnForum { get; set; }
+        public bool ShowOnForum_OverrideForStore { get; set; }
 
         [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.reCaptchaPublicKey")]
         public string ReCaptchaPublicKey { get; set; }

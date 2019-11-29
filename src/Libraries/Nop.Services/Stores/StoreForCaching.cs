@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations.Schema;
 using Nop.Core.Caching;
 using Nop.Core.Domain.Stores;
@@ -14,12 +14,8 @@ namespace Nop.Services.Stores
     [NotMapped]
     public class StoreForCaching : Store, IEntityForCaching
     {
-        /// <summary>
-        /// Ctor
-        /// </summary>
         public StoreForCaching()
         {
-            
         }
 
         /// <summary>

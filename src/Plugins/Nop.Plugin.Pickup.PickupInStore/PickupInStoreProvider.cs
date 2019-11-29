@@ -3,13 +3,13 @@ using System.Linq;
 using Nop.Core;
 using Nop.Core.Domain.Common;
 using Nop.Core.Domain.Shipping;
-using Nop.Core.Plugins;
 using Nop.Plugin.Pickup.PickupInStore.Data;
 using Nop.Plugin.Pickup.PickupInStore.Domain;
 using Nop.Plugin.Pickup.PickupInStore.Services;
 using Nop.Services.Common;
 using Nop.Services.Directory;
 using Nop.Services.Localization;
+using Nop.Services.Plugins;
 using Nop.Services.Shipping.Pickup;
 using Nop.Services.Shipping.Tracking;
 
@@ -38,17 +38,17 @@ namespace Nop.Plugin.Pickup.PickupInStore
             IStateProvinceService stateProvinceService,
             IStoreContext storeContext,
             IStorePickupPointService storePickupPointService,
-            StorePickupPointObjectContext objectContext, 
+            StorePickupPointObjectContext objectContext,
             IWebHelper webHelper)
         {
-            this._addressService = addressService;
-            this._countryService = countryService;
-            this._localizationService = localizationService;
-            this._stateProvinceService = stateProvinceService;
-            this._storeContext = storeContext;
-            this._storePickupPointService = storePickupPointService;
-            this._objectContext = objectContext;
-            this._webHelper = webHelper;
+            _addressService = addressService;
+            _countryService = countryService;
+            _localizationService = localizationService;
+            _stateProvinceService = stateProvinceService;
+            _storeContext = storeContext;
+            _storePickupPointService = storePickupPointService;
+            _objectContext = objectContext;
+            _webHelper = webHelper;
         }
 
         #endregion
@@ -96,8 +96,10 @@ namespace Nop.Plugin.Pickup.PickupInStore
                     OpeningHours = point.OpeningHours,
                     PickupFee = point.PickupFee,
                     DisplayOrder = point.DisplayOrder,
-                    ProviderSystemName = PluginDescriptor.SystemName
-                });
+                    ProviderSystemName = PluginDescriptor.SystemName,
+                    Latitude = point.Latitude,
+                    Longitude = point.Longitude
+                });                
             }
 
             if (!result.PickupPoints.Any())
@@ -147,20 +149,30 @@ namespace Nop.Plugin.Pickup.PickupInStore
             _storePickupPointService.InsertStorePickupPoint(pickupPoint);
 
             //locales
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.AddNew", "Add a new pickup point");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Description", "Description");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Description.Hint", "Specify a description of the pickup point.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.DisplayOrder", "Display order");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.DisplayOrder.Hint", "Specify the pickup point display order.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Name", "Name");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Name.Hint", "Specify a name of the pickup point.");            
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.OpeningHours", "Opening hours");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.OpeningHours.Hint", "Specify an openning hours of the pickup point (Monday - Friday: 09:00 - 19:00 for example).");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.PickupFee", "Pickup fee");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.PickupFee.Hint", "Specify a fee for the shipping to the pickup point.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Store", "Store");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Store.Hint", "A store name for which this pickup point will be available.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.NoPickupPoints", "No pickup points are available");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.AddNew", "Add a new pickup point");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Description", "Description");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Description.Hint", "Specify a description of the pickup point.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.DisplayOrder", "Display order");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.DisplayOrder.Hint", "Specify the pickup point display order.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude", "Latitude");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude.Hint", "Specify a latitude (DD.dddddddd°).");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude.InvalidPrecision", "Precision should be less then 8");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude.InvalidRange", "Latitude should be in range -90 to 90");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude.IsNullWhenLongitudeHasValue", "Latitude and Longitude should be specify together");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude", "Longitude");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude.Hint", "Specify a longitude (DD.dddddddd°).");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude.InvalidPrecision", "Precision should be less then 8");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude.InvalidRange", "Longitude should be in range -180 to 180");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude.IsNullWhenLatitudeHasValue", "Latitude and Longitude should be specify together");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Name", "Name");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Name.Hint", "Specify a name of the pickup point.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.OpeningHours", "Opening hours");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.OpeningHours.Hint", "Specify opening hours of the pickup point (Monday - Friday: 09:00 - 19:00 for example).");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.PickupFee", "Pickup fee");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.PickupFee.Hint", "Specify a fee for the shipping to the pickup point.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Store", "Store");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Store.Hint", "A store name for which this pickup point will be available.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Pickup.PickupInStore.NoPickupPoints", "No pickup points are available");
 
             base.Install();
         }
@@ -174,20 +186,30 @@ namespace Nop.Plugin.Pickup.PickupInStore
             _objectContext.Uninstall();
 
             //locales
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.AddNew");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Description");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Description.Hint");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.DisplayOrder");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.DisplayOrder.Hint");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Name");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Name.Hint");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.OpeningHours");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.OpeningHours.Hint");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.PickupFee");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.PickupFee.Hint");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Store");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Store.Hint");
-            this.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.NoPickupPoints");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.AddNew");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Description");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Description.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.DisplayOrder");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.DisplayOrder.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude.InvalidPrecision");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude.InvalidRange");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Latitude.IsNullWhenLongitudeHasValue");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude.InvalidPrecision");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude.InvalidRange");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Longitude.IsNullWhenLatitudeHasValue");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Name");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Name.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.OpeningHours");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.OpeningHours.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.PickupFee");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.PickupFee.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Store");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.Fields.Store.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Pickup.PickupInStore.NoPickupPoints");
 
             base.Uninstall();
         }

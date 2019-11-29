@@ -58,10 +58,8 @@ namespace Nop.Data.Mapping.Orders
             builder.Ignore(order => order.PaymentStatus);
             builder.Ignore(order => order.ShippingStatus);
             builder.Ignore(order => order.CustomerTaxDisplayType);
-            builder.Ignore(order => order.TaxRatesDictionary);
 
-            //add custom configuration
-            this.PostConfigure(builder);
+            base.Configure(builder);
         }
 
         #endregion

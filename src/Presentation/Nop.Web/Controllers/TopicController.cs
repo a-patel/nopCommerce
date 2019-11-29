@@ -14,30 +14,30 @@ namespace Nop.Web.Controllers
     {
         #region Fields
 
+        private readonly IAclService _aclService;
+        private readonly ILocalizationService _localizationService;
+        private readonly IPermissionService _permissionService;
+        private readonly IStoreMappingService _storeMappingService;
         private readonly ITopicModelFactory _topicModelFactory;
         private readonly ITopicService _topicService;
-        private readonly ILocalizationService _localizationService;
-        private readonly IStoreMappingService _storeMappingService;
-        private readonly IAclService _aclService;
-        private readonly IPermissionService _permissionService;
 
         #endregion
 
         #region Ctor
 
-        public TopicController(ITopicModelFactory topicModelFactory,
-            ITopicService topicService,
+        public TopicController(IAclService aclService,
             ILocalizationService localizationService,
+            IPermissionService permissionService,
             IStoreMappingService storeMappingService,
-            IAclService aclService,
-            IPermissionService permissionService)
+            ITopicModelFactory topicModelFactory,
+            ITopicService topicService)
         {
-            this._topicModelFactory = topicModelFactory;
-            this._topicService = topicService;
-            this._localizationService = localizationService;
-            this._storeMappingService = storeMappingService;
-            this._aclService = aclService;
-            this._permissionService = permissionService;
+            _aclService = aclService;
+            _localizationService = localizationService;
+            _permissionService = permissionService;
+            _storeMappingService = storeMappingService;
+            _topicModelFactory = topicModelFactory;
+            _topicService = topicService;
         }
 
         #endregion
@@ -47,12 +47,13 @@ namespace Nop.Web.Controllers
         [HttpsRequirement(SslRequirement.No)]
         public virtual IActionResult TopicDetails(int topicId)
         {
-            var model = _topicModelFactory.PrepareTopicModelById(topicId);
+            //allow administrators to preview any topic
             var hasAdminAccess = _permissionService.Authorize(StandardPermissionProvider.AccessAdminPanel) && _permissionService.Authorize(StandardPermissionProvider.ManageTopics);
-            //access to Topics preview
-            if (model == null || (!model.Published && !hasAdminAccess))
-                return RedirectToRoute("HomePage");
-            
+
+            var model = _topicModelFactory.PrepareTopicModelById(topicId, hasAdminAccess);
+            if (model == null)
+                return InvokeHttp404();
+
             //display "edit" (manage) link
             if (hasAdminAccess)
                 DisplayEditLink(Url.Action("Edit", "Topic", new { id = model.Id, area = AreaNames.Admin }));
@@ -66,7 +67,7 @@ namespace Nop.Web.Controllers
         {
             var model = _topicModelFactory.PrepareTopicModelBySystemName(systemName);
             if (model == null)
-                return RedirectToRoute("HomePage");
+                return InvokeHttp404();
 
             ViewBag.IsPopup = true;
 
@@ -97,8 +98,8 @@ namespace Nop.Web.Controllers
                 if (topic.Password != null && topic.Password.Equals(password))
                 {
                     authResult = true;
-                    title = topic.GetLocalized(x => x.Title);
-                    body = topic.GetLocalized(x => x.Body);
+                    title = _localizationService.GetLocalized(topic, x => x.Title);
+                    body = _localizationService.GetLocalized(topic, x => x.Body);
                 }
                 else
                 {

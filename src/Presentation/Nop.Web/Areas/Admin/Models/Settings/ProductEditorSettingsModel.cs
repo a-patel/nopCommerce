@@ -6,12 +6,11 @@ namespace Nop.Web.Areas.Admin.Models.Settings
     /// <summary>
     /// Represents a product editor settings model
     /// </summary>
-    public partial class ProductEditorSettingsModel : BaseNopModel
+    public partial class ProductEditorSettingsModel : BaseNopModel, ISettingsModel
     {
         #region Properties
 
-        [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.Id")]
-        public bool Id { get; set; }
+        public int ActiveStoreScopeConfiguration { get; set; }
 
         [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.ProductType")]
         public bool ProductType { get; set; }
@@ -34,8 +33,8 @@ namespace Nop.Web.Areas.Admin.Models.Settings
         [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.ACL")]
         public bool ACL { get; set; }
 
-        [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.ShowOnHomePage")]
-        public bool ShowOnHomePage { get; set; }
+        [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.ShowOnHomepage")]
+        public bool ShowOnHomepage { get; set; }
 
         [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.DisplayOrder")]
         public bool DisplayOrder { get; set; }
@@ -180,13 +179,7 @@ namespace Nop.Web.Areas.Admin.Models.Settings
 
         [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.Published")]
         public bool Published { get; set; }
-
-        [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.CreatedOn")]
-        public bool CreatedOn { get; set; }
-
-        [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.UpdatedOn")]
-        public bool UpdatedOn { get; set; }
-
+        
         [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.RelatedProducts")]
         public bool RelatedProducts { get; set; }
 
@@ -198,10 +191,7 @@ namespace Nop.Web.Areas.Admin.Models.Settings
 
         [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.PurchasedWithOrders")]
         public bool PurchasedWithOrders { get; set; }
-
-        [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.OneColumnProductPage")]
-        public bool OneColumnProductPage { get; set; }
-
+       
         [NopResourceDisplayName("Admin.Configuration.Settings.ProductEditor.ProductAttributes")]
         public bool ProductAttributes { get; set; }
 

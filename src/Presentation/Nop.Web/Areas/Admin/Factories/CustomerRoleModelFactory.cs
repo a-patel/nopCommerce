@@ -6,9 +6,12 @@ using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Customers;
 using Nop.Services.Catalog;
 using Nop.Services.Customers;
-using Nop.Web.Areas.Admin.Extensions;
+using Nop.Services.Localization;
+using Nop.Services.Seo;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
+using Nop.Web.Areas.Admin.Models.Catalog;
 using Nop.Web.Areas.Admin.Models.Customers;
-using Nop.Web.Framework.Extensions;
+using Nop.Web.Framework.Models.Extensions;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -21,7 +24,9 @@ namespace Nop.Web.Areas.Admin.Factories
 
         private readonly IBaseAdminModelFactory _baseAdminModelFactory;
         private readonly ICustomerService _customerService;
+        private readonly ILocalizationService _localizationService;
         private readonly IProductService _productService;
+        private readonly IUrlRecordService _urlRecordService;
         private readonly IWorkContext _workContext;
 
         #endregion
@@ -30,17 +35,22 @@ namespace Nop.Web.Areas.Admin.Factories
 
         public CustomerRoleModelFactory(IBaseAdminModelFactory baseAdminModelFactory,
             ICustomerService customerService,
+            ILocalizationService localizationService,
             IProductService productService,
+            IUrlRecordService urlRecordService,
             IWorkContext workContext)
         {
-            this._baseAdminModelFactory = baseAdminModelFactory;
-            this._customerService = customerService;
-            this._productService = productService;
-            this._workContext = workContext;
+            _baseAdminModelFactory = baseAdminModelFactory;
+            _customerService = customerService;
+            _localizationService = localizationService;
+            _productService = productService;
+            _urlRecordService = urlRecordService;
+            _workContext = workContext;
         }
 
         #endregion
 
+   
         #region Methods
 
         /// <summary>
@@ -70,23 +80,22 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get customer roles
-            var customerRoles = _customerService.GetAllCustomerRoles(true);
+            var customerRoles = _customerService.GetAllCustomerRoles(true).ToPagedList(searchModel);
 
             //prepare grid model
-            var model = new CustomerRoleListModel
+            var model = new CustomerRoleListModel().PrepareToGrid(searchModel, customerRoles, () =>
             {
-                Data = customerRoles.PaginationByRequestModel(searchModel).Select(role =>
+                return customerRoles.Select(role =>
                 {
                     //fill in model values from the entity
-                    var customerRoleModel = role.ToModel();
+                    var customerRoleModel = role.ToModel<CustomerRoleModel>();
 
                     //fill in additional values (not existing in the entity)
                     customerRoleModel.PurchasedWithProductName = _productService.GetProductById(role.PurchasedWithProductId)?.Name;
 
                     return customerRoleModel;
-                }),
-                Total = customerRoles.Count
-            };
+                });
+            });
 
             return model;
         }
@@ -103,7 +112,7 @@ namespace Nop.Web.Areas.Admin.Factories
             if (customerRole != null)
             {
                 //fill in model values from the entity
-                model = model ?? customerRole.ToModel();
+                model = model ?? customerRole.ToModel<CustomerRoleModel>();
                 model.PurchasedWithProductName = _productService.GetProductById(customerRole.PurchasedWithProductId)?.Name;
             }
 
@@ -176,12 +185,16 @@ namespace Nop.Web.Areas.Admin.Factories
                 pageIndex: searchModel.Page - 1, pageSize: searchModel.PageSize);
 
             //prepare grid model
-            var model = new CustomerRoleProductListModel
+            var model = new CustomerRoleProductListModel().PrepareToGrid(searchModel, products, () =>
             {
-                //fill in model values from the entity
-                Data = products.Select(product => product.ToModel()),
-                Total = products.TotalCount
-            };
+                return products.Select(product =>
+                {
+                    var productModel = product.ToModel<ProductModel>();
+                    productModel.SeName = _urlRecordService.GetSeName(product, 0, true, false);
+
+                    return productModel;
+                });
+            });
 
             return model;
         }

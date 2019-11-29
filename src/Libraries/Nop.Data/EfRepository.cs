@@ -22,16 +22,16 @@ namespace Nop.Data
         #endregion
 
         #region Ctor
-        
+
         public EfRepository(IDbContext context)
         {
-            this._context = context;
+            _context = context;
         }
 
         #endregion
 
         #region Utilities
-        
+
         /// <summary>
         /// Rollback of entity changes and return full error message
         /// </summary>
@@ -45,11 +45,30 @@ namespace Nop.Data
                 var entries = dbContext.ChangeTracker.Entries()
                     .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified).ToList();
 
-                entries.ForEach(entry => entry.State = EntityState.Unchanged);
+                entries.ForEach(entry =>
+                {
+                    try
+                    {
+                        entry.State = EntityState.Unchanged;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // ignored
+                    }
+                });
             }
-
-            _context.SaveChanges();
-            return exception.ToString();
+            
+            try
+            {
+                _context.SaveChanges();
+                return exception.ToString();
+            }
+            catch (Exception ex)
+            {
+                //if after the rollback of changes the context is still not saving,
+                //return the full text of the exception that occurred when saving
+                return ex.ToString(); 
+            }
         }
 
         #endregion
@@ -204,10 +223,7 @@ namespace Nop.Data
         /// <summary>
         /// Gets a table with "no tracking" enabled (EF feature) Use it only when you load record(s) only for read-only operations
         /// </summary>
-        public virtual IQueryable<TEntity> TableNoTracking =>
-            //AsNoTracking method temporarily doesn't work, it's a bug in EF Core 2.1 (details in https://github.com/aspnet/EntityFrameworkCore/issues/11689)
-            //Entities.AsNoTracking();
-            Entities;
+        public virtual IQueryable<TEntity> TableNoTracking => Entities.AsNoTracking();
 
         /// <summary>
         /// Gets an entity set

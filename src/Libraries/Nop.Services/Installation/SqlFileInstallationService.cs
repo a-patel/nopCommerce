@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -22,39 +22,30 @@ namespace Nop.Services.Installation
     {
         #region Fields
 
-        private readonly IRepository<Language> _languageRepository;
-        private readonly IRepository<Customer> _customerRepository;
-        private readonly IRepository<Store> _storeRepository;
         private readonly IDbContext _dbContext;
-        private readonly IWebHelper _webHelper;
         private readonly INopFileProvider _fileProvider;
+        private readonly IRepository<Customer> _customerRepository;
+        private readonly IRepository<Language> _languageRepository;
+        private readonly IRepository<Store> _storeRepository;
+        private readonly IWebHelper _webHelper;
 
         #endregion
 
         #region Ctor
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="languageRepository">Language repository</param>
-        /// <param name="customerRepository">Customer repository</param>
-        /// <param name="storeRepository">Store repository</param>
-        /// <param name="dbContext">DB context</param>
-        /// <param name="webHelper">Web helper</param>
-        /// <param name="fileProvider">File provider</param>
-        public SqlFileInstallationService(IRepository<Language> languageRepository,
+        public SqlFileInstallationService(IDbContext dbContext,
+            INopFileProvider fileProvider,
             IRepository<Customer> customerRepository,
+            IRepository<Language> languageRepository,
             IRepository<Store> storeRepository,
-            IDbContext dbContext,
-            IWebHelper webHelper,
-            INopFileProvider fileProvider)
+            IWebHelper webHelper)
         {
-            this._languageRepository = languageRepository;
-            this._customerRepository = customerRepository;
-            this._storeRepository = storeRepository;
-            this._dbContext = dbContext;
-            this._webHelper = webHelper;
-            this._fileProvider = fileProvider;
+            _dbContext = dbContext;
+            _fileProvider = fileProvider;
+            _customerRepository = customerRepository;
+            _languageRepository = languageRepository;
+            _storeRepository = storeRepository;
+            _webHelper = webHelper;
         }
 
         #endregion
@@ -70,11 +61,15 @@ namespace Nop.Services.Installation
             var language = _languageRepository.Table.Single(l => l.Name == "English");
 
             //save resources
-            foreach (var filePath in _fileProvider.EnumerateFiles(_fileProvider.MapPath("~/App_Data/Localization/"), "*.nopres.xml"))
+            var directoryPath = _fileProvider.MapPath(NopInstallationDefaults.LocalizationResourcesPath);
+            var pattern = $"*.{NopInstallationDefaults.LocalizationResourcesFileExtension}";
+            foreach (var filePath in _fileProvider.EnumerateFiles(directoryPath, pattern))
             {
-                var localesXml = _fileProvider.ReadAllText(filePath, Encoding.UTF8);
                 var localizationService = EngineContext.Current.Resolve<ILocalizationService>();
-                localizationService.ImportResourcesFromXml(language, localesXml);
+                using (var streamReader = new StreamReader(filePath))
+                {
+                    localizationService.ImportResourcesFromXml(language, streamReader);
+                }
             }
         }
 
@@ -96,7 +91,7 @@ namespace Nop.Services.Installation
 
             var customerRegistrationService = EngineContext.Current.Resolve<ICustomerRegistrationService>();
             customerRegistrationService.ChangePassword(new ChangePasswordRequest(defaultUserEmail, false,
-                 PasswordFormat.Hashed, defaultUserPassword));
+                 PasswordFormat.Hashed, defaultUserPassword, null, NopCustomerServiceDefaults.DefaultHashedPasswordFormat));
         }
 
         /// <summary>
@@ -119,7 +114,7 @@ namespace Nop.Services.Installation
         protected virtual void ExecuteSqlFile(string path)
         {
             var statements = new List<string>();
-            
+
             using (var reader = new StreamReader(path))
             {
                 string statement;
@@ -164,23 +159,25 @@ namespace Nop.Services.Installation
         #region Methods
 
         /// <summary>
-        /// Install data
+        /// Install required data
         /// </summary>
         /// <param name="defaultUserEmail">Default user email</param>
         /// <param name="defaultUserPassword">Default user password</param>
-        /// <param name="installSampleData">A value indicating whether to install sample data</param>
-        public virtual void InstallData(string defaultUserEmail,
-            string defaultUserPassword, bool installSampleData = true)
+        public virtual void InstallRequiredData(string defaultUserEmail, string defaultUserPassword)
         {
-            ExecuteSqlFile(_fileProvider.MapPath("~/App_Data/Install/Fast/create_required_data.sql"));
+            ExecuteSqlFile(_fileProvider.MapPath(NopInstallationDefaults.RequiredDataPath));
             InstallLocaleResources();
             UpdateDefaultCustomer(defaultUserEmail, defaultUserPassword);
             UpdateDefaultStoreUrl();
+        }
 
-            if (installSampleData)
-            {
-                ExecuteSqlFile(_fileProvider.MapPath("~/App_Data/Install/Fast/create_sample_data.sql"));
-            }
+        /// <summary>
+        /// Install sample data
+        /// </summary>
+        /// <param name="defaultUserEmail">Default user email</param>
+        public virtual void InstallSampleData(string defaultUserEmail)
+        {
+            ExecuteSqlFile(_fileProvider.MapPath(NopInstallationDefaults.SampleDataPath));
         }
 
         #endregion

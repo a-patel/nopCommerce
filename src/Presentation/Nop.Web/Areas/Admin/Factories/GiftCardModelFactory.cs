@@ -8,9 +8,9 @@ using Nop.Services.Directory;
 using Nop.Services.Helpers;
 using Nop.Services.Localization;
 using Nop.Services.Orders;
-using Nop.Web.Areas.Admin.Extensions;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
 using Nop.Web.Areas.Admin.Models.Orders;
-using Nop.Web.Framework.Extensions;
+using Nop.Web.Framework.Models.Extensions;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -39,12 +39,12 @@ namespace Nop.Web.Areas.Admin.Factories
             ILocalizationService localizationService,
             IPriceFormatter priceFormatter)
         {
-            this._currencySettings = currencySettings;
-            this._currencyService = currencyService;
-            this._dateTimeHelper = dateTimeHelper;
-            this._giftCardService = giftCardService;
-            this._localizationService = localizationService;
-            this._priceFormatter = priceFormatter;
+            _currencySettings = currencySettings;
+            _currencyService = currencyService;
+            _dateTimeHelper = dateTimeHelper;
+            _giftCardService = giftCardService;
+            _localizationService = localizationService;
+            _priceFormatter = priceFormatter;
         }
 
         #endregion
@@ -73,7 +73,7 @@ namespace Nop.Web.Areas.Admin.Factories
 
             return searchModel;
         }
-
+        
         #endregion
 
         #region Methods
@@ -131,24 +131,23 @@ namespace Nop.Web.Areas.Admin.Factories
                 pageIndex: searchModel.Page - 1, pageSize: searchModel.PageSize);
 
             //prepare list model
-            var model = new GiftCardListModel
+            var model = new GiftCardListModel().PrepareToGrid(searchModel, giftCards, () =>
             {
-                Data = giftCards.Select(giftCard =>
+                return giftCards.Select(giftCard =>
                 {
                     //fill in model values from the entity
-                    var giftCardModel = giftCard.ToModel();
+                    var giftCardModel = giftCard.ToModel<GiftCardModel>();
 
                     //convert dates to the user time
                     giftCardModel.CreatedOn = _dateTimeHelper.ConvertToUserTime(giftCard.CreatedOnUtc, DateTimeKind.Utc);
 
                     //fill in additional values (not existing in the entity)
-                    giftCardModel.RemainingAmountStr = _priceFormatter.FormatPrice(giftCard.GetGiftCardRemainingAmount(), true, false);
+                    giftCardModel.RemainingAmountStr = _priceFormatter.FormatPrice(_giftCardService.GetGiftCardRemainingAmount(giftCard), true, false);
                     giftCardModel.AmountStr = _priceFormatter.FormatPrice(giftCard.Amount, true, false);
 
                     return giftCardModel;
-                }),
-                Total = giftCards.TotalCount
-            };
+                });
+            });
 
             return model;
         }
@@ -165,10 +164,10 @@ namespace Nop.Web.Areas.Admin.Factories
             if (giftCard != null)
             {
                 //fill in model values from the entity
-                model = model ?? giftCard.ToModel();
+                model = model ?? giftCard.ToModel<GiftCardModel>();
 
                 model.PurchasedWithOrderId = giftCard.PurchasedWithOrderItem?.OrderId;
-                model.RemainingAmountStr = _priceFormatter.FormatPrice(giftCard.GetGiftCardRemainingAmount(), true, false);
+                model.RemainingAmountStr = _priceFormatter.FormatPrice(_giftCardService.GetGiftCardRemainingAmount(giftCard), true, false);
                 model.AmountStr = _priceFormatter.FormatPrice(giftCard.Amount, true, false);
                 model.CreatedOn = _dateTimeHelper.ConvertToUserTime(giftCard.CreatedOnUtc, DateTimeKind.Utc);
                 model.PurchasedWithOrderNumber = giftCard.PurchasedWithOrderItem?.Order?.CustomOrderNumber;
@@ -198,31 +197,29 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(giftCard));
 
             //get gift card usage history
-            var usageHistory = giftCard.GiftCardUsageHistory.OrderByDescending(historyEntry => historyEntry.CreatedOnUtc).ToList();
+            var usageHistory = giftCard.GiftCardUsageHistory
+                .OrderByDescending(historyEntry => historyEntry.CreatedOnUtc).ToList()
+                .ToPagedList(searchModel);
 
             //prepare list model
-            var model = new GiftCardUsageHistoryListModel
+            var model = new GiftCardUsageHistoryListModel().PrepareToGrid(searchModel, usageHistory, () =>
             {
-                Data = usageHistory.PaginationByRequestModel(searchModel).Select(historyEntry =>
+                return usageHistory.Select(historyEntry =>
                 {
                     //fill in model values from the entity
-                    var giftCardUsageHistoryModel = new GiftCardUsageHistoryModel
-                    {
-                        Id = historyEntry.Id,
-                        OrderId = historyEntry.UsedWithOrderId,
-                        CustomOrderNumber = historyEntry.UsedWithOrder.CustomOrderNumber
-                    };
+                    var giftCardUsageHistoryModel = historyEntry.ToModel<GiftCardUsageHistoryModel>();
 
                     //convert dates to the user time
                     giftCardUsageHistoryModel.CreatedOn = _dateTimeHelper.ConvertToUserTime(historyEntry.CreatedOnUtc, DateTimeKind.Utc);
 
                     //fill in additional values (not existing in the entity)
+                    giftCardUsageHistoryModel.OrderId = historyEntry.UsedWithOrderId;
+                    giftCardUsageHistoryModel.CustomOrderNumber = historyEntry.UsedWithOrder.CustomOrderNumber;
                     giftCardUsageHistoryModel.UsedValue = _priceFormatter.FormatPrice(historyEntry.UsedValue, true, false);
 
                     return giftCardUsageHistoryModel;
-                }),
-                Total = usageHistory.Count
-            };
+                });
+            });
 
             return model;
         }

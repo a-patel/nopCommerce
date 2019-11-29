@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Nop.Core;
@@ -7,17 +7,19 @@ using Nop.Core.Data;
 using Nop.Core.Data.Extensions;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Common;
+using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Localization;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Security;
 using Nop.Core.Domain.Shipping;
 using Nop.Core.Domain.Stores;
+using Nop.Core.Infrastructure;
 using Nop.Data;
-using Nop.Services.Customers;
 using Nop.Services.Events;
 using Nop.Services.Localization;
 using Nop.Services.Messages;
 using Nop.Services.Security;
+using Nop.Services.Shipping.Date;
 using Nop.Services.Stores;
 
 namespace Nop.Services.Catalog
@@ -27,133 +29,251 @@ namespace Nop.Services.Catalog
     /// </summary>
     public partial class ProductService : IProductService
     {
-        #region Constants
-
-        /// <summary>
-        /// Key for caching
-        /// </summary>
-        /// <remarks>
-        /// {0} : product ID
-        /// </remarks>
-        private const string PRODUCTS_BY_ID_KEY = "Nop.product.id-{0}";
-        /// <summary>
-        /// Key pattern to clear cache
-        /// </summary>
-        private const string PRODUCTS_PATTERN_KEY = "Nop.product.";
-
-        #endregion
-
         #region Fields
 
-        private readonly IRepository<Product> _productRepository;
-        private readonly IRepository<RelatedProduct> _relatedProductRepository;
-        private readonly IRepository<CrossSellProduct> _crossSellProductRepository;
-        private readonly IRepository<TierPrice> _tierPriceRepository;
+        private readonly CatalogSettings _catalogSettings;
+        private readonly CommonSettings _commonSettings;
+        private readonly IAclService _aclService;
+        private readonly ICacheManager _cacheManager;
+        private readonly IDataProvider _dataProvider;
+        private readonly IDateRangeService _dateRangeService;
+        private readonly IDbContext _dbContext;
+        private readonly IEventPublisher _eventPublisher;
+        private readonly ILanguageService _languageService;
+        private readonly ILocalizationService _localizationService;
+        private readonly IProductAttributeParser _productAttributeParser;
+        private readonly IProductAttributeService _productAttributeService;
         private readonly IRepository<AclRecord> _aclRepository;
-        private readonly IRepository<StoreMapping> _storeMappingRepository;
+        private readonly IRepository<CrossSellProduct> _crossSellProductRepository;
+        private readonly IRepository<Product> _productRepository;
         private readonly IRepository<ProductPicture> _productPictureRepository;
         private readonly IRepository<ProductReview> _productReviewRepository;
         private readonly IRepository<ProductWarehouseInventory> _productWarehouseInventoryRepository;
+        private readonly IRepository<RelatedProduct> _relatedProductRepository;
         private readonly IRepository<StockQuantityHistory> _stockQuantityHistoryRepository;
-        private readonly IProductAttributeService _productAttributeService;
-        private readonly IProductAttributeParser _productAttributeParser;
-        private readonly ILanguageService _languageService;
-        private readonly IWorkflowMessageService _workflowMessageService;
-        private readonly IDataProvider _dataProvider;
-        private readonly IDbContext _dbContext;
-        private readonly ICacheManager _cacheManager;
+        private readonly IRepository<StoreMapping> _storeMappingRepository;
+        private readonly IRepository<TierPrice> _tierPriceRepository;
+        private readonly IStoreMappingService _storeMappingService;
+        private readonly IStoreService _storeService;
         private readonly IWorkContext _workContext;
         private readonly LocalizationSettings _localizationSettings;
-        private readonly CommonSettings _commonSettings;
-        private readonly CatalogSettings _catalogSettings;
-        private readonly IEventPublisher _eventPublisher;
-        private readonly IAclService _aclService;
-        private readonly IStoreMappingService _storeMappingService;
 
         #endregion
 
         #region Ctor
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="cacheManager">Cache manager</param>
-        /// <param name="productRepository">Product repository</param>
-        /// <param name="relatedProductRepository">Related product repository</param>
-        /// <param name="crossSellProductRepository">Cross-sell product repository</param>
-        /// <param name="tierPriceRepository">Tier price repository</param>
-        /// <param name="aclRepository">ACL record repository</param>
-        /// <param name="storeMappingRepository">Store mapping repository</param>
-        /// <param name="productPictureRepository">Product picture repository</param>
-        /// <param name="productReviewRepository">Product review repository</param>
-        /// <param name="productWarehouseInventoryRepository">Product warehouse inventory repository</param>
-        /// <param name="stockQuantityHistoryRepository">Stock quantity history repository</param>
-        /// <param name="productAttributeService">Product attribute service</param>
-        /// <param name="productAttributeParser">Product attribute parser service</param>
-        /// <param name="languageService">Language service</param>
-        /// <param name="workflowMessageService">Workflow message service</param>
-        /// <param name="dataProvider">Data provider</param>
-        /// <param name="dbContext">Database Context</param>
-        /// <param name="workContext">Work context</param>
-        /// <param name="localizationSettings">Localization settings</param>
-        /// <param name="commonSettings">Common settings</param>
-        /// <param name="catalogSettings">Catalog settings</param>
-        /// <param name="eventPublisher">Event published</param>
-        /// <param name="aclService">ACL service</param>
-        /// <param name="storeMappingService">Store mapping service</param>
-        public ProductService(ICacheManager cacheManager,
-            IRepository<Product> productRepository,
-            IRepository<RelatedProduct> relatedProductRepository,
-            IRepository<CrossSellProduct> crossSellProductRepository,
-            IRepository<TierPrice> tierPriceRepository,
-            IRepository<ProductPicture> productPictureRepository,
-            IRepository<AclRecord> aclRepository,
-            IRepository<StoreMapping> storeMappingRepository,
-            IRepository<ProductReview>  productReviewRepository,
-            IRepository<ProductWarehouseInventory> productWarehouseInventoryRepository,
-            IRepository<StockQuantityHistory> stockQuantityHistoryRepository,
-            IProductAttributeService productAttributeService,
-            IProductAttributeParser productAttributeParser,
-            ILanguageService languageService,
-            IWorkflowMessageService workflowMessageService,
-            IDataProvider dataProvider, 
-            IDbContext dbContext,
-            IWorkContext workContext,
-            LocalizationSettings localizationSettings, 
+        public ProductService(CatalogSettings catalogSettings,
             CommonSettings commonSettings,
-            CatalogSettings catalogSettings,
-            IEventPublisher eventPublisher,
             IAclService aclService,
-            IStoreMappingService storeMappingService)
+            ICacheManager cacheManager,
+            IDataProvider dataProvider,
+            IDateRangeService dateRangeService,
+            IDbContext dbContext,
+            IEventPublisher eventPublisher,
+            ILanguageService languageService,
+            ILocalizationService localizationService,
+            IProductAttributeParser productAttributeParser,
+            IProductAttributeService productAttributeService,
+            IRepository<AclRecord> aclRepository,
+            IRepository<CrossSellProduct> crossSellProductRepository,
+            IRepository<Product> productRepository,
+            IRepository<ProductPicture> productPictureRepository,
+            IRepository<ProductReview> productReviewRepository,
+            IRepository<ProductWarehouseInventory> productWarehouseInventoryRepository,
+            IRepository<RelatedProduct> relatedProductRepository,
+            IRepository<StockQuantityHistory> stockQuantityHistoryRepository,
+            IRepository<StoreMapping> storeMappingRepository,
+            IRepository<TierPrice> tierPriceRepository,
+            IStoreService storeService,
+            IStoreMappingService storeMappingService,
+            IWorkContext workContext,
+            LocalizationSettings localizationSettings)
         {
-            this._cacheManager = cacheManager;
-            this._productRepository = productRepository;
-            this._relatedProductRepository = relatedProductRepository;
-            this._crossSellProductRepository = crossSellProductRepository;
-            this._tierPriceRepository = tierPriceRepository;
-            this._productPictureRepository = productPictureRepository;
-            this._aclRepository = aclRepository;
-            this._storeMappingRepository = storeMappingRepository;
-            this._productReviewRepository = productReviewRepository;
-            this._productWarehouseInventoryRepository = productWarehouseInventoryRepository;
-            this._stockQuantityHistoryRepository = stockQuantityHistoryRepository;
-            this._productAttributeService = productAttributeService;
-            this._productAttributeParser = productAttributeParser;
-            this._languageService = languageService;
-            this._workflowMessageService = workflowMessageService;
-            this._dataProvider = dataProvider;
-            this._dbContext = dbContext;
-            this._workContext = workContext;
-            this._localizationSettings = localizationSettings;
-            this._commonSettings = commonSettings;
-            this._catalogSettings = catalogSettings;
-            this._eventPublisher = eventPublisher;
-            this._aclService = aclService;
-            this._storeMappingService = storeMappingService;
+            _catalogSettings = catalogSettings;
+            _commonSettings = commonSettings;
+            _aclService = aclService;
+            _cacheManager = cacheManager;
+            _dataProvider = dataProvider;
+            _dateRangeService = dateRangeService;
+            _dbContext = dbContext;
+            _eventPublisher = eventPublisher;
+            _languageService = languageService;
+            _localizationService = localizationService;
+            _productAttributeParser = productAttributeParser;
+            _productAttributeService = productAttributeService;
+            _aclRepository = aclRepository;
+            _crossSellProductRepository = crossSellProductRepository;
+            _productRepository = productRepository;
+            _productPictureRepository = productPictureRepository;
+            _productReviewRepository = productReviewRepository;
+            _productWarehouseInventoryRepository = productWarehouseInventoryRepository;
+            _relatedProductRepository = relatedProductRepository;
+            _stockQuantityHistoryRepository = stockQuantityHistoryRepository;
+            _storeMappingRepository = storeMappingRepository;
+            _tierPriceRepository = tierPriceRepository;
+            _storeMappingService = storeMappingService;
+            _storeService = storeService;
+            _workContext = workContext;
+            _localizationSettings = localizationSettings;
         }
 
         #endregion
-        
+
+        #region Utilities
+
+        /// <summary>
+        /// Gets SKU, Manufacturer part number and GTIN
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="attributesXml">Attributes in XML format</param>
+        /// <param name="sku">SKU</param>
+        /// <param name="manufacturerPartNumber">Manufacturer part number</param>
+        /// <param name="gtin">GTIN</param>
+        protected virtual void GetSkuMpnGtin(Product product, string attributesXml,
+            out string sku, out string manufacturerPartNumber, out string gtin)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            sku = null;
+            manufacturerPartNumber = null;
+            gtin = null;
+
+            if (!string.IsNullOrEmpty(attributesXml) &&
+                product.ManageInventoryMethod == ManageInventoryMethod.ManageStockByAttributes)
+            {
+                //manage stock by attribute combinations
+                //let's find appropriate record
+                var combination = _productAttributeParser.FindProductAttributeCombination(product, attributesXml);
+                if (combination != null)
+                {
+                    sku = combination.Sku;
+                    manufacturerPartNumber = combination.ManufacturerPartNumber;
+                    gtin = combination.Gtin;
+                }
+            }
+
+            if (string.IsNullOrEmpty(sku))
+                sku = product.Sku;
+            if (string.IsNullOrEmpty(manufacturerPartNumber))
+                manufacturerPartNumber = product.ManufacturerPartNumber;
+            if (string.IsNullOrEmpty(gtin))
+                gtin = product.Gtin;
+        }
+
+        /// <summary>
+        /// Get stock message
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="attributesXml">Attributes in XML format</param>
+        /// <returns>Message</returns>
+        protected virtual string GeStockMessage(Product product, string attributesXml)
+        {
+            if (!product.DisplayStockAvailability)
+                return string.Empty;
+
+            string stockMessage;
+
+            var combination = _productAttributeParser.FindProductAttributeCombination(product, attributesXml);
+            if (combination != null)
+            {
+                //combination exists
+                var stockQuantity = combination.StockQuantity;
+                if (stockQuantity > 0)
+                {
+                    stockMessage = product.DisplayStockQuantity
+                        ?
+                        //display "in stock" with stock quantity
+                        string.Format(_localizationService.GetResource("Products.Availability.InStockWithQuantity"), stockQuantity)
+                        :
+                        //display "in stock" without stock quantity
+                        _localizationService.GetResource("Products.Availability.InStock");
+                }
+                else if (combination.AllowOutOfStockOrders)
+                {
+                    stockMessage = _localizationService.GetResource("Products.Availability.InStock");
+                }
+                else
+                {
+                    var productAvailabilityRange =
+                        _dateRangeService.GetProductAvailabilityRangeById(product.ProductAvailabilityRangeId);
+                    stockMessage = productAvailabilityRange == null
+                        ? _localizationService.GetResource("Products.Availability.OutOfStock")
+                        : string.Format(_localizationService.GetResource("Products.Availability.AvailabilityRange"),
+                            _localizationService.GetLocalized(productAvailabilityRange, range => range.Name));
+                }
+            }
+            else
+            {
+                //no combination configured
+                if (product.AllowAddingOnlyExistingAttributeCombinations)
+                {
+                    var productAvailabilityRange =
+                        _dateRangeService.GetProductAvailabilityRangeById(product.ProductAvailabilityRangeId);
+                    stockMessage = productAvailabilityRange == null
+                        ? _localizationService.GetResource("Products.Availability.OutOfStock")
+                        : string.Format(_localizationService.GetResource("Products.Availability.AvailabilityRange"),
+                            _localizationService.GetLocalized(productAvailabilityRange, range => range.Name));
+                }
+                else
+                {
+                    stockMessage = !_productAttributeService.GetProductAttributeMappingsByProductId(product.Id)
+                        .Any(pam => pam.IsRequired) ? _localizationService.GetResource("Products.Availability.InStock") : _localizationService.GetResource("Products.Availability.SelectRequiredAttributes");
+                }
+            }
+            return stockMessage;
+        }
+
+        /// <summary>
+        /// Get stock message
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="stockMessage">Message</param>
+        /// <returns>Message</returns>
+        protected virtual string GetStockMessage(Product product, string stockMessage)
+        {
+            if (!product.DisplayStockAvailability)
+                return string.Empty;
+
+            var stockQuantity = GetTotalStockQuantity(product);
+            if (stockQuantity > 0)
+            {
+                stockMessage = product.DisplayStockQuantity
+                    ?
+                    //display "in stock" with stock quantity
+                    string.Format(_localizationService.GetResource("Products.Availability.InStockWithQuantity"), stockQuantity)
+                    :
+                    //display "in stock" without stock quantity
+                    _localizationService.GetResource("Products.Availability.InStock");
+            }
+            else
+            {
+                //out of stock
+                var productAvailabilityRange = _dateRangeService.GetProductAvailabilityRangeById(product.ProductAvailabilityRangeId);
+                switch (product.BackorderMode)
+                {
+                    case BackorderMode.NoBackorders:
+                        stockMessage = productAvailabilityRange == null
+                            ? _localizationService.GetResource("Products.Availability.OutOfStock")
+                            : string.Format(_localizationService.GetResource("Products.Availability.AvailabilityRange"),
+                                _localizationService.GetLocalized(productAvailabilityRange, range => range.Name));
+                        break;
+                    case BackorderMode.AllowQtyBelow0:
+                        stockMessage = _localizationService.GetResource("Products.Availability.InStock");
+                        break;
+                    case BackorderMode.AllowQtyBelow0AndNotifyCustomer:
+                        stockMessage = productAvailabilityRange == null
+                            ? _localizationService.GetResource("Products.Availability.Backordering")
+                            : string.Format(_localizationService.GetResource("Products.Availability.BackorderingWithDate"),
+                                _localizationService.GetLocalized(productAvailabilityRange, range => range.Name));
+                        break;
+                }
+            }
+            return stockMessage;
+        }
+
+        #endregion
+
         #region Methods
 
         #region Products
@@ -203,18 +323,18 @@ namespace Nop.Services.Catalog
         /// Gets all products displayed on the home page
         /// </summary>
         /// <returns>Products</returns>
-        public virtual IList<Product> GetAllProductsDisplayedOnHomePage()
+        public virtual IList<Product> GetAllProductsDisplayedOnHomepage()
         {
             var query = from p in _productRepository.Table
                         orderby p.DisplayOrder, p.Id
                         where p.Published &&
                         !p.Deleted &&
-                        p.ShowOnHomePage
+                        p.ShowOnHomepage
                         select p;
             var products = query.ToList();
             return products;
         }
-        
+
         /// <summary>
         /// Gets product
         /// </summary>
@@ -224,8 +344,8 @@ namespace Nop.Services.Catalog
         {
             if (productId == 0)
                 return null;
-            
-            var key = string.Format(PRODUCTS_BY_ID_KEY, productId);
+
+            var key = string.Format(NopCatalogDefaults.ProductsByIdCacheKey, productId);
             return _cacheManager.Get(key, () => _productRepository.GetById(productId));
         }
 
@@ -251,6 +371,7 @@ namespace Nop.Services.Catalog
                 if (product != null)
                     sortedProducts.Add(product);
             }
+
             return sortedProducts;
         }
 
@@ -267,8 +388,8 @@ namespace Nop.Services.Catalog
             _productRepository.Insert(product);
 
             //clear cache
-            _cacheManager.RemoveByPattern(PRODUCTS_PATTERN_KEY);
-            
+            _cacheManager.RemoveByPrefix(NopCatalogDefaults.ProductsPrefixCacheKey);
+
             //event notification
             _eventPublisher.EntityInserted(product);
         }
@@ -286,7 +407,7 @@ namespace Nop.Services.Catalog
             _productRepository.Update(product);
 
             //cache
-            _cacheManager.RemoveByPattern(PRODUCTS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopCatalogDefaults.ProductsPrefixCacheKey);
 
             //event notification
             _eventPublisher.EntityUpdated(product);
@@ -305,7 +426,7 @@ namespace Nop.Services.Catalog
             _productRepository.Update(products);
 
             //cache
-            _cacheManager.RemoveByPattern(PRODUCTS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopCatalogDefaults.ProductsPrefixCacheKey);
 
             //event notification
             foreach (var product in products)
@@ -344,7 +465,7 @@ namespace Nop.Services.Catalog
 
                 query = from p in query
                         join acl in _aclRepository.Table
-                        on new { c1 = p.Id, c2 = "Product" } equals new { c1 = acl.EntityId, c2 = acl.EntityName } into p_acl
+                        on new { c1 = p.Id, c2 = nameof(Product) } equals new { c1 = acl.EntityId, c2 = acl.EntityName } into p_acl
                         from acl in p_acl.DefaultIfEmpty()
                         where !p.SubjectToAcl || allowedCustomerRolesIds.Contains(acl.CustomerRoleId)
                         select p;
@@ -354,7 +475,7 @@ namespace Nop.Services.Catalog
             {
                 query = from p in query
                         join sm in _storeMappingRepository.Table
-                        on new { c1 = p.Id, c2 = "Product" } equals new { c1 = sm.EntityId, c2 = sm.EntityName } into p_sm
+                        on new { c1 = p.Id, c2 = nameof(Product) } equals new { c1 = sm.EntityId, c2 = sm.EntityName } into p_sm
                         from sm in p_sm.DefaultIfEmpty()
                         where !p.LimitedToStores || storeId == sm.StoreId
                         select p;
@@ -423,7 +544,7 @@ namespace Nop.Services.Catalog
             bool showHidden = false,
             bool? overridePublished = null)
         {
-            return SearchProducts(out IList<int> _, false,
+            return SearchProducts(out var _, false,
                 pageIndex, pageSize, categoryIds, manufacturerId,
                 storeId, vendorId, warehouseId,
                 productType, visibleIndividuallyOnly, markedAsNewOnly, featuredProducts,
@@ -513,20 +634,20 @@ namespace Nop.Services.Catalog
             }
 
             //validate "categoryIds" parameter
-            if (categoryIds !=null && categoryIds.Contains(0))
+            if (categoryIds != null && categoryIds.Contains(0))
                 categoryIds.Remove(0);
 
             //Access control list. Allowed customer roles
             var allowedCustomerRolesIds = _workContext.CurrentCustomer.GetCustomerRoleIds();
-            
+
             //pass category identifiers as comma-delimited string
-            var commaSeparatedCategoryIds = categoryIds == null ? "" : string.Join(",", categoryIds);
+            var commaSeparatedCategoryIds = categoryIds == null ? string.Empty : string.Join(",", categoryIds);
 
             //pass customer role identifiers as comma-delimited string
             var commaSeparatedAllowedCustomerRoleIds = string.Join(",", allowedCustomerRolesIds);
 
             //pass specification identifiers as comma-delimited string
-            var commaSeparatedSpecIds = "";
+            var commaSeparatedSpecIds = string.Empty;
             if (filteredSpecs != null)
             {
                 ((List<int>)filteredSpecs).Sort();
@@ -560,7 +681,7 @@ namespace Nop.Services.Catalog
             var pFilteredSpecs = _dataProvider.GetStringParameter("FilteredSpecs", commaSeparatedSpecIds);
             var pLanguageId = _dataProvider.GetInt32Parameter("LanguageId", searchLocalizedValue ? languageId : 0);
             var pOrderBy = _dataProvider.GetInt32Parameter("OrderBy", (int)orderBy);
-            var pAllowedCustomerRoleIds = _dataProvider.GetStringParameter("AllowedCustomerRoleIds", !_catalogSettings.IgnoreAcl ? commaSeparatedAllowedCustomerRoleIds : "");
+            var pAllowedCustomerRoleIds = _dataProvider.GetStringParameter("AllowedCustomerRoleIds", !_catalogSettings.IgnoreAcl ? commaSeparatedAllowedCustomerRoleIds : string.Empty);
             var pPageIndex = _dataProvider.GetInt32Parameter("PageIndex", pageIndex);
             var pPageSize = _dataProvider.GetInt32Parameter("PageSize", pageSize);
             var pShowHidden = _dataProvider.GetBooleanParameter("ShowHidden", showHidden);
@@ -608,7 +729,7 @@ namespace Nop.Services.Catalog
             var filterableSpecificationAttributeOptionIdsStr =
                 pFilterableSpecificationAttributeOptionIds.Value != DBNull.Value
                     ? (string)pFilterableSpecificationAttributeOptionIds.Value
-                    : "";
+                    : string.Empty;
 
             if (loadFilterableSpecificationAttributeOptionIds &&
                 !string.IsNullOrWhiteSpace(filterableSpecificationAttributeOptionIdsStr))
@@ -658,7 +779,7 @@ namespace Nop.Services.Catalog
             if (!showHidden)
             {
                 query = query.Where(x => x.Published);
-            
+
                 //available dates
                 query = query.Where(p =>
                     (!p.AvailableStartDateTimeUtc.HasValue || p.AvailableStartDateTimeUtc.Value < DateTime.UtcNow) &&
@@ -669,6 +790,7 @@ namespace Nop.Services.Catalog
             {
                 query = query.Where(p => p.VendorId == vendorId);
             }
+
             query = query.Where(x => !x.Deleted);
             query = query.OrderBy(x => x.DisplayOrder).ThenBy(x => x.Id);
 
@@ -679,6 +801,7 @@ namespace Nop.Services.Catalog
             {
                 products = products.Where(x => _aclService.Authorize(x)).ToList();
             }
+
             //Store mapping
             if (!showHidden && storeId > 0)
             {
@@ -687,7 +810,7 @@ namespace Nop.Services.Catalog
 
             return products;
         }
-        
+
         /// <summary>
         /// Update product review totals
         /// </summary>
@@ -698,7 +821,7 @@ namespace Nop.Services.Catalog
                 throw new ArgumentNullException(nameof(product));
 
             var approvedRatingSum = 0;
-            var notApprovedRatingSum = 0; 
+            var notApprovedRatingSum = 0;
             var approvedTotalReviews = 0;
             var notApprovedTotalReviews = 0;
             var reviews = product.ProductReviews;
@@ -707,7 +830,7 @@ namespace Nop.Services.Catalog
                 if (pr.IsApproved)
                 {
                     approvedRatingSum += pr.Rating;
-                    approvedTotalReviews ++;
+                    approvedTotalReviews++;
                 }
                 else
                 {
@@ -736,13 +859,13 @@ namespace Nop.Services.Catalog
             int pageIndex = 0, int pageSize = int.MaxValue, bool getOnlyTotalCount = false)
         {
             var query = _productRepository.Table;
-            
+
             //filter by products with tracking inventory
             query = query.Where(product => product.ManageInventoryMethodId == (int)ManageInventoryMethod.ManageStock);
 
             //filter by products with stock quantity less than the minimum
-            query = query.Where(product => 
-                (product.UseMultipleWarehouses ? product.ProductWarehouseInventory.Sum(pwi => pwi.StockQuantity - pwi.ReservedQuantity) 
+            query = query.Where(product =>
+                (product.UseMultipleWarehouses ? product.ProductWarehouseInventory.Sum(pwi => pwi.StockQuantity - pwi.ReservedQuantity)
                     : product.StockQuantity) <= product.MinStockQuantity);
 
             //ignore deleted products
@@ -757,12 +880,7 @@ namespace Nop.Services.Catalog
 
             //whether to load published products only
             if (loadPublishedOnly.HasValue)
-            {
-                if (loadPublishedOnly.Value)
-                    query = query.Where(product => product.Published);
-                else
-                    query = query.Where(product => !product.Published);
-            }
+                query = loadPublishedOnly.Value ? query.Where(product => product.Published) : query.Where(product => !product.Published);
 
             query = query.OrderBy(product => product.MinStockQuantity).ThenBy(product => product.DisplayOrder).ThenBy(product => product.Id);
 
@@ -798,12 +916,7 @@ namespace Nop.Services.Catalog
 
             //whether to load published products only
             if (loadPublishedOnly.HasValue)
-            {
-                if (loadPublishedOnly.Value)
-                    products = products.Where(product => product.Published);
-                else
-                    products = products.Where(product => !product.Published);
-            }
+                products = loadPublishedOnly.Value ? products.Where(product => product.Published) : products.Where(product => !product.Published);
 
             var combinations = products.SelectMany(product => product.ProductAttributeCombinations);
 
@@ -833,6 +946,7 @@ namespace Nop.Services.Catalog
                         p.Sku == sku
                         select p;
             var product = query.FirstOrDefault();
+
             return product;
         }
 
@@ -895,6 +1009,318 @@ namespace Nop.Services.Catalog
             return _productRepository.Table.Count(p => p.VendorId == vendorId && !p.Deleted);
         }
 
+        /// <summary>
+        /// Parse "required product Ids" property
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <returns>A list of required product IDs</returns>
+        public virtual int[] ParseRequiredProductIds(Product product)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            if (string.IsNullOrEmpty(product.RequiredProductIds))
+                return new int[0];
+
+            var ids = new List<int>();
+
+            foreach (var idStr in product.RequiredProductIds
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => x.Trim()))
+            {
+                if (int.TryParse(idStr, out var id))
+                    ids.Add(id);
+            }
+
+            return ids.ToArray();
+        }
+
+        /// <summary>
+        /// Get a value indicating whether a product is available now (availability dates)
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="dateTime">Datetime to check; pass null to use current date</param>
+        /// <returns>Result</returns>
+        public virtual bool ProductIsAvailable(Product product, DateTime? dateTime = null)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            if (product.AvailableStartDateTimeUtc.HasValue && product.AvailableStartDateTimeUtc.Value > dateTime)
+                return false;
+
+            if (product.AvailableEndDateTimeUtc.HasValue && product.AvailableEndDateTimeUtc.Value < dateTime)
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Indicates whether a product tag exists
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="productTagId">Product tag identifier</param>
+        /// <returns>Result</returns>
+        public virtual bool ProductTagExists(Product product, int productTagId)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            var result = product.ProductProductTagMappings.Any(pt => pt.ProductTagId == productTagId);
+            return result;
+        }
+
+        /// <summary>
+        /// Get a list of allowed quantities (parse 'AllowedQuantities' property)
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <returns>Result</returns>
+        public virtual int[] ParseAllowedQuantities(Product product)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            var result = new List<int>();
+            if (!string.IsNullOrWhiteSpace(product.AllowedQuantities))
+            {
+                product.AllowedQuantities
+                    .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                    .ToList()
+                    .ForEach(qtyStr =>
+                    {
+                        if (int.TryParse(qtyStr.Trim(), out var qty))
+                        {
+                            result.Add(qty);
+                        }
+                    });
+            }
+
+            return result.ToArray();
+        }
+
+        /// <summary>
+        /// Get total quantity
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="useReservedQuantity">
+        /// A value indicating whether we should consider "Reserved Quantity" property 
+        /// when "multiple warehouses" are used
+        /// </param>
+        /// <param name="warehouseId">
+        /// Warehouse identifier. Used to limit result to certain warehouse.
+        /// Used only with "multiple warehouses" enabled.
+        /// </param>
+        /// <returns>Result</returns>
+        public virtual int GetTotalStockQuantity(Product product, bool useReservedQuantity = true, int warehouseId = 0)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            if (product.ManageInventoryMethod != ManageInventoryMethod.ManageStock)
+            {
+                //We can calculate total stock quantity when 'Manage inventory' property is set to 'Track inventory'
+                return 0;
+            }
+
+            if (!product.UseMultipleWarehouses)
+                return product.StockQuantity;
+
+            var pwi = product.ProductWarehouseInventory;
+            if (warehouseId > 0)
+            {
+                pwi = pwi.Where(x => x.WarehouseId == warehouseId).ToList();
+            }
+            var result = pwi.Sum(x => x.StockQuantity);
+            if (useReservedQuantity)
+            {
+                result = result - pwi.Sum(x => x.ReservedQuantity);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get number of rental periods (price ratio)
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="startDate">Start date</param>
+        /// <param name="endDate">End date</param>
+        /// <returns>Number of rental periods</returns>
+        public virtual int GetRentalPeriods(Product product, DateTime startDate, DateTime endDate)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            if (!product.IsRental)
+                return 1;
+
+            if (startDate.CompareTo(endDate) >= 0)
+                return 1;
+
+            int totalPeriods;
+            switch (product.RentalPricePeriod)
+            {
+                case RentalPricePeriod.Days:
+                    {
+                        var totalDaysToRent = Math.Max((endDate - startDate).TotalDays, 1);
+                        var configuredPeriodDays = product.RentalPriceLength;
+                        totalPeriods = Convert.ToInt32(Math.Ceiling(totalDaysToRent / configuredPeriodDays));
+                    }
+                    break;
+                case RentalPricePeriod.Weeks:
+                    {
+                        var totalDaysToRent = Math.Max((endDate - startDate).TotalDays, 1);
+                        var configuredPeriodDays = 7 * product.RentalPriceLength;
+                        totalPeriods = Convert.ToInt32(Math.Ceiling(totalDaysToRent / configuredPeriodDays));
+                    }
+                    break;
+                case RentalPricePeriod.Months:
+                    {
+                        //Source: http://stackoverflow.com/questions/4638993/difference-in-months-between-two-dates
+                        var totalMonthsToRent = (endDate.Year - startDate.Year) * 12 + endDate.Month - startDate.Month;
+                        if (startDate.AddMonths(totalMonthsToRent) < endDate)
+                        {
+                            //several days added (not full month)
+                            totalMonthsToRent++;
+                        }
+                        var configuredPeriodMonths = product.RentalPriceLength;
+                        totalPeriods = Convert.ToInt32(Math.Ceiling((double)totalMonthsToRent / configuredPeriodMonths));
+                    }
+                    break;
+                case RentalPricePeriod.Years:
+                    {
+                        var totalDaysToRent = Math.Max((endDate - startDate).TotalDays, 1);
+                        var configuredPeriodDays = 365 * product.RentalPriceLength;
+                        totalPeriods = Convert.ToInt32(Math.Ceiling(totalDaysToRent / configuredPeriodDays));
+                    }
+                    break;
+                default:
+                    throw new Exception("Not supported rental period");
+            }
+
+            return totalPeriods;
+        }
+
+        /// <summary>
+        /// Formats the stock availability/quantity message
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="attributesXml">Selected product attributes in XML format (if specified)</param>
+        /// <returns>The stock message</returns>
+        public virtual string FormatStockMessage(Product product, string attributesXml)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            var stockMessage = string.Empty;
+
+            switch (product.ManageInventoryMethod)
+            {
+                case ManageInventoryMethod.ManageStock:
+                    stockMessage = GetStockMessage(product, stockMessage);
+                    break;
+                case ManageInventoryMethod.ManageStockByAttributes:
+                    stockMessage = GeStockMessage(product, attributesXml);
+                    break;
+            }
+
+            return stockMessage;
+        }
+
+        /// <summary>
+        /// Formats SKU
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="attributesXml">Attributes in XML format</param>
+        /// <returns>SKU</returns>
+        public virtual string FormatSku(Product product, string attributesXml = null)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            GetSkuMpnGtin(product, attributesXml, out var sku, out var _, out var _);
+
+            return sku;
+        }
+
+        /// <summary>
+        /// Formats manufacturer part number
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="attributesXml">Attributes in XML format</param>
+        /// <returns>Manufacturer part number</returns>
+        public virtual string FormatMpn(Product product, string attributesXml = null)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            GetSkuMpnGtin(product, attributesXml, out var _, out var manufacturerPartNumber, out var _);
+
+            return manufacturerPartNumber;
+        }
+
+        /// <summary>
+        /// Formats GTIN
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="attributesXml">Attributes in XML format</param>
+        /// <returns>GTIN</returns>
+        public virtual string FormatGtin(Product product, string attributesXml = null)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            GetSkuMpnGtin(product, attributesXml, out var _, out var _, out var gtin);
+
+            return gtin;
+        }
+
+        /// <summary>
+        /// Formats start/end date for rental product
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="date">Date</param>
+        /// <returns>Formatted date</returns>
+        public virtual string FormatRentalDate(Product product, DateTime date)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            if (!product.IsRental)
+                return null;
+
+            return date.ToShortDateString();
+        }
+
+        /// <summary>
+        /// Update product store mappings
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="limitedToStoresIds">A list of store ids for mapping</param>
+        public virtual void UpdateProductStoreMappings(Product product, IList<int> limitedToStoresIds)
+        {
+            product.LimitedToStores = limitedToStoresIds.Any();
+
+            var existingStoreMappings = _storeMappingService.GetStoreMappings(product);
+            var allStores = _storeService.GetAllStores();
+            foreach (var store in allStores)
+            {
+                if (limitedToStoresIds.Contains(store.Id))
+                {
+                    //new store
+                    if (existingStoreMappings.Count(sm => sm.StoreId == store.Id) == 0)
+                        _storeMappingService.InsertStoreMapping(product, store.Id);
+                }
+                else
+                {
+                    //remove store
+                    var storeMappingToDelete = existingStoreMappings.FirstOrDefault(sm => sm.StoreId == store.Id);
+                    if (storeMappingToDelete != null)
+                        _storeMappingService.DeleteStoreMapping(storeMappingToDelete);
+                }
+            }
+        }
+
         #endregion
 
         #region Inventory management methods
@@ -913,11 +1339,11 @@ namespace Nop.Services.Catalog
 
             if (quantityToChange == 0)
                 return;
-            
+
             if (product.ManageInventoryMethod == ManageInventoryMethod.ManageStock)
             {
                 //previous stock
-                var prevStockQuantity = product.GetTotalStockQuantity();
+                var prevStockQuantity = GetTotalStockQuantity(product);
 
                 //update stock quantity
                 if (product.UseMultipleWarehouses)
@@ -940,7 +1366,7 @@ namespace Nop.Services.Catalog
                 }
 
                 //qty is reduced. check if minimum stock quantity is reached
-                if (quantityToChange < 0 && product.MinStockQuantity >= product.GetTotalStockQuantity())
+                if (quantityToChange < 0 && product.MinStockQuantity >= GetTotalStockQuantity(product))
                 {
                     //what should we do now? disable buy button, unpublish the product, or do nothing? check "Low stock activity" property
                     switch (product.LowStockActivity)
@@ -961,7 +1387,7 @@ namespace Nop.Services.Catalog
                 //qty is increased. product is back in stock (minimum stock quantity is reached again)?
                 if (_catalogSettings.PublishBackProductWhenCancellingOrders)
                 {
-                    if (quantityToChange > 0 && prevStockQuantity <= product.MinStockQuantity && product.MinStockQuantity < product.GetTotalStockQuantity())
+                    if (quantityToChange > 0 && prevStockQuantity <= product.MinStockQuantity && product.MinStockQuantity < GetTotalStockQuantity(product))
                     {
                         switch (product.LowStockActivity)
                         {
@@ -981,9 +1407,10 @@ namespace Nop.Services.Catalog
                 }
 
                 //send email notification
-                if (quantityToChange < 0 && product.GetTotalStockQuantity() < product.NotifyAdminForQuantityBelow)
+                if (quantityToChange < 0 && GetTotalStockQuantity(product) < product.NotifyAdminForQuantityBelow)
                 {
-                    _workflowMessageService.SendQuantityBelowStoreOwnerNotification(product, _localizationSettings.DefaultAdminLanguageId);
+                    var workflowMessageService = EngineContext.Current.Resolve<IWorkflowMessageService>();
+                    workflowMessageService.SendQuantityBelowStoreOwnerNotification(product, _localizationSettings.DefaultAdminLanguageId);
                 }
             }
 
@@ -1001,7 +1428,8 @@ namespace Nop.Services.Catalog
                     //send email notification
                     if (quantityToChange < 0 && combination.StockQuantity < combination.NotifyAdminForQuantityBelow)
                     {
-                        _workflowMessageService.SendQuantityBelowStoreOwnerNotification(combination, _localizationSettings.DefaultAdminLanguageId);
+                        var workflowMessageService = EngineContext.Current.Resolve<IWorkflowMessageService>();
+                        workflowMessageService.SendQuantityBelowStoreOwnerNotification(combination, _localizationSettings.DefaultAdminLanguageId);
                     }
                 }
             }
@@ -1010,14 +1438,14 @@ namespace Nop.Services.Catalog
             var attributeValues = _productAttributeParser.ParseProductAttributeValues(attributesXml);
             foreach (var attributeValue in attributeValues)
             {
-                if (attributeValue.AttributeValueType == AttributeValueType.AssociatedToProduct)
+                if (attributeValue.AttributeValueType != AttributeValueType.AssociatedToProduct)
+                    continue;
+
+                //associated product (bundle)
+                var associatedProduct = GetProductById(attributeValue.AssociatedProductId);
+                if (associatedProduct != null)
                 {
-                    //associated product (bundle)
-                    var associatedProduct = GetProductById(attributeValue.AssociatedProductId);
-                    if (associatedProduct != null)
-                    {
-                        AdjustInventory(associatedProduct, quantityToChange * attributeValue.Quantity, message);
-                    }
+                    AdjustInventory(associatedProduct, quantityToChange * attributeValue.Quantity, message);
                 }
             }
 
@@ -1046,7 +1474,7 @@ namespace Nop.Services.Catalog
                 throw new ArgumentNullException(nameof(product));
 
             if (quantity >= 0)
-                throw new ArgumentException("Value must be negative.", "quantity");
+                throw new ArgumentException("Value must be negative.", nameof(quantity));
 
             var qty = -quantity;
 
@@ -1057,21 +1485,15 @@ namespace Nop.Services.Catalog
             if (productInventory.Count <= 0)
                 return;
 
-            Action pass = () =>
-            {
-                foreach (var item in productInventory)
-                {
-                    var selectQty = Math.Min(item.StockQuantity - item.ReservedQuantity, qty);
-                    item.ReservedQuantity += selectQty;
-                    qty -= selectQty;
-
-                    if (qty <= 0)
-                        break;
-                }
-            };
-
             // 1st pass: Applying reserved
-            pass();
+            foreach (var item in productInventory)
+            {
+                var selectQty = Math.Min(item.StockQuantity - item.ReservedQuantity, qty);
+                item.ReservedQuantity += selectQty;
+                qty -= selectQty;
+
+                if (qty <= 0) break;
+            }
 
             if (qty > 0)
             {
@@ -1080,7 +1502,58 @@ namespace Nop.Services.Catalog
                 pwi.ReservedQuantity += qty;
             }
 
-            this.UpdateProduct(product);
+            UpdateProduct(product);
+        }
+
+        /// <summary>
+        /// Balance the given quantity in the warehouses.
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="warehouseId">Warehouse identifier</param>
+        /// <param name="quantity">Quantity</param>
+        public virtual void BalanceInventory(Product product, int warehouseId, int quantity)
+        {
+            if (product == null)
+                throw new ArgumentNullException(nameof(product));
+
+            //Warehouse to which reserve is being transferred
+            var productInventory = product.ProductWarehouseInventory
+                .Where(pwi => pwi.WarehouseId == warehouseId)
+                .ToList()
+                .FirstOrDefault();
+
+            if (productInventory == null)
+                return;
+
+            var selectQty = Math.Min(productInventory.StockQuantity - productInventory.ReservedQuantity, quantity);
+            productInventory.ReservedQuantity += selectQty;
+
+            //remove from reserve in other warehouses what has just been reserved in the current warehouse to equalize the total
+            var productAnotherInventories = product.ProductWarehouseInventory
+                .Where(pwi => pwi.WarehouseId != warehouseId)
+                .OrderByDescending(ob => ob.ReservedQuantity)
+                .ToList();
+
+            var qty = selectQty;
+            //We need to make a balance in all warehouses, as resources of one warehouse may not be enough
+            foreach (var productAnotherInventory in productAnotherInventories)
+            {
+                if (qty > 0)
+                {
+                    if (productAnotherInventory.ReservedQuantity >= qty)
+                    {
+                        productAnotherInventory.ReservedQuantity -= qty;
+                    }
+                    else
+                    {
+                        //Here we can transfer only a part of the reserve, the rest will be sought in other warehouses.
+                        qty = selectQty - productAnotherInventory.ReservedQuantity;
+                        productAnotherInventory.ReservedQuantity = 0;
+                    }
+                }
+            }
+                                                  
+            UpdateProduct(product);
         }
 
         /// <summary>
@@ -1094,7 +1567,7 @@ namespace Nop.Services.Catalog
                 throw new ArgumentNullException(nameof(product));
 
             if (quantity < 0)
-                throw new ArgumentException("Value must be positive.", "quantity");
+                throw new ArgumentException("Value must be positive.", nameof(quantity));
 
             var productInventory = product.ProductWarehouseInventory
                 .OrderByDescending(pwi => pwi.ReservedQuantity)
@@ -1138,7 +1611,7 @@ namespace Nop.Services.Catalog
                 throw new ArgumentNullException(nameof(product));
 
             if (quantity >= 0)
-                throw new ArgumentException("Value must be negative.", "quantity");
+                throw new ArgumentException("Value must be negative.", nameof(quantity));
 
             //only products with "use multiple warehouses" are handled this way
             if (product.ManageInventoryMethod != ManageInventoryMethod.ManageStock)
@@ -1174,7 +1647,7 @@ namespace Nop.Services.Catalog
 
             if (shipmentItem == null)
                 throw new ArgumentNullException(nameof(shipmentItem));
-            
+
             //only products with "use multiple warehouses" are handled this way
             if (product.ManageInventoryMethod != ManageInventoryMethod.ManageStock)
                 return 0;
@@ -1253,7 +1726,7 @@ namespace Nop.Services.Catalog
         {
             if (relatedProductId == 0)
                 return null;
-            
+
             return _relatedProductRepository.GetById(relatedProductId);
         }
 
@@ -1287,6 +1760,21 @@ namespace Nop.Services.Catalog
             _eventPublisher.EntityUpdated(relatedProduct);
         }
 
+        /// <summary>
+        /// Finds a related product item by specified identifiers
+        /// </summary>
+        /// <param name="source">Source</param>
+        /// <param name="productId1">The first product identifier</param>
+        /// <param name="productId2">The second product identifier</param>
+        /// <returns>Related product</returns>
+        public virtual RelatedProduct FindRelatedProduct(IList<RelatedProduct> source, int productId1, int productId2)
+        {
+            foreach (var relatedProduct in source)
+                if (relatedProduct.ProductId1 == productId1 && relatedProduct.ProductId2 == productId2)
+                    return relatedProduct;
+            return null;
+        }
+
         #endregion
 
         #region Cross-sell products
@@ -1314,7 +1802,7 @@ namespace Nop.Services.Catalog
         /// <returns>Cross-sell products</returns>
         public virtual IList<CrossSellProduct> GetCrossSellProductsByProductId1(int productId1, bool showHidden = false)
         {
-            return GetCrossSellProductsByProductIds(new[] {productId1}, showHidden);
+            return GetCrossSellProductsByProductIds(new[] { productId1 }, showHidden);
         }
 
         /// <summary>
@@ -1329,12 +1817,12 @@ namespace Nop.Services.Catalog
                 return new List<CrossSellProduct>();
 
             var query = from csp in _crossSellProductRepository.Table
-                join p in _productRepository.Table on csp.ProductId2 equals p.Id
-                where productIds.Contains(csp.ProductId1) &&
-                      !p.Deleted &&
-                      (showHidden || p.Published)
-                orderby csp.Id
-                select csp;
+                        join p in _productRepository.Table on csp.ProductId2 equals p.Id
+                        where productIds.Contains(csp.ProductId1) &&
+                              !p.Deleted &&
+                              (showHidden || p.Published)
+                        orderby csp.Id
+                        select csp;
             var crossSellProducts = query.ToList();
             return crossSellProducts;
         }
@@ -1412,27 +1900,42 @@ namespace Nop.Services.Catalog
             {
                 //validate that this product is not added to result yet
                 //validate that this product is not in the cart
-                if (result.Find(p => p.Id == crossSell.ProductId2) == null &&
-                    !cartProductIds.Contains(crossSell.ProductId2))
-                {
-                    var productToAdd = GetProductById(crossSell.ProductId2);
-                    //validate product
-                    if (productToAdd == null || productToAdd.Deleted || !productToAdd.Published)
-                        continue;
+                if (result.Find(p => p.Id == crossSell.ProductId2) != null || cartProductIds.Contains(crossSell.ProductId2))
+                    continue;
 
-                    //add a product to result
-                    result.Add(productToAdd);
-                    if (result.Count >= numberOfProducts)
-                        return result;
-                }
+                var productToAdd = GetProductById(crossSell.ProductId2);
+                //validate product
+                if (productToAdd == null || productToAdd.Deleted || !productToAdd.Published)
+                    continue;
+
+                //add a product to result
+                result.Add(productToAdd);
+                if (result.Count >= numberOfProducts)
+                    return result;
             }
+
             return result;
         }
 
+        /// <summary>
+        /// Finds a cross-sell product item by specified identifiers
+        /// </summary>
+        /// <param name="source">Source</param>
+        /// <param name="productId1">The first product identifier</param>
+        /// <param name="productId2">The second product identifier</param>
+        /// <returns>Cross-sell product</returns>
+        public virtual CrossSellProduct FindCrossSellProduct(IList<CrossSellProduct> source, int productId1, int productId2)
+        {
+            foreach (var crossSellProduct in source)
+                if (crossSellProduct.ProductId1 == productId1 && crossSellProduct.ProductId2 == productId2)
+                    return crossSellProduct;
+            return null;
+        }
+
         #endregion
-        
+
         #region Tier prices
-        
+
         /// <summary>
         /// Deletes a tier price
         /// </summary>
@@ -1444,7 +1947,7 @@ namespace Nop.Services.Catalog
 
             _tierPriceRepository.Delete(tierPrice);
 
-            _cacheManager.RemoveByPattern(PRODUCTS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopCatalogDefaults.ProductsPrefixCacheKey);
 
             //event notification
             _eventPublisher.EntityDeleted(tierPrice);
@@ -1459,7 +1962,7 @@ namespace Nop.Services.Catalog
         {
             if (tierPriceId == 0)
                 return null;
-            
+
             return _tierPriceRepository.GetById(tierPriceId);
         }
 
@@ -1474,7 +1977,7 @@ namespace Nop.Services.Catalog
 
             _tierPriceRepository.Insert(tierPrice);
 
-            _cacheManager.RemoveByPattern(PRODUCTS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopCatalogDefaults.ProductsPrefixCacheKey);
 
             //event notification
             _eventPublisher.EntityInserted(tierPrice);
@@ -1491,10 +1994,35 @@ namespace Nop.Services.Catalog
 
             _tierPriceRepository.Update(tierPrice);
 
-            _cacheManager.RemoveByPattern(PRODUCTS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopCatalogDefaults.ProductsPrefixCacheKey);
 
             //event notification
             _eventPublisher.EntityUpdated(tierPrice);
+        }
+
+        /// <summary>
+        /// Gets a preferred tier price
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="customer">Customer</param>
+        /// <param name="storeId">Store identifier</param>
+        /// <param name="quantity">Quantity</param>
+        /// <returns>Tier price</returns>
+        public virtual TierPrice GetPreferredTierPrice(Product product, Customer customer, int storeId, int quantity)
+        {
+            if (!product.HasTierPrices)
+                return null;
+
+            //get actual tier prices
+            var actualTierPrices = product.TierPrices.OrderBy(price => price.Quantity).ToList()
+                .FilterByStore(storeId)
+                .FilterForCustomer(customer)
+                .FilterByDate()
+                .RemoveDuplicatedQuantities();
+
+            //get the most suitable tier price based on the passed quantity
+            var tierPrice = actualTierPrices.LastOrDefault(price => quantity >= price.Quantity);
+            return tierPrice;
         }
 
         #endregion
@@ -1579,10 +2107,11 @@ namespace Nop.Services.Catalog
         /// </summary>
         /// <param name="productsIds">Products IDs</param>
         /// <returns>All picture identifiers grouped by product ID</returns>
-        public IDictionary<int, int[]> GetProductsImagesIds(int [] productsIds)
+        public IDictionary<int, int[]> GetProductsImagesIds(int[] productsIds)
         {
-            return _productPictureRepository.Table.Where(p => productsIds.Contains(p.ProductId))
-                .GroupBy(p => p.ProductId).ToDictionary(p => p.Key, p => p.Select(p1 => p1.PictureId).ToArray());
+            var productPictures = _productPictureRepository.Table.Where(p => productsIds.Contains(p.ProductId)).ToList();
+
+            return productPictures.GroupBy(p => p.ProductId).ToDictionary(p => p.Key, p => p.Select(p1 => p1.PictureId).ToArray());
         }
 
         #endregion
@@ -1635,7 +2164,7 @@ namespace Nop.Services.Catalog
             {
                 query = from productReview in query
                         join storeMapping in _storeMappingRepository.Table
-                            on new { Id = productReview.ProductId, Name = nameof(Product) } 
+                            on new { Id = productReview.ProductId, Name = nameof(Product) }
                             equals new { Id = storeMapping.EntityId, Name = storeMapping.EntityName } into storeMappingsWithNulls
                         from storeMapping in storeMappingsWithNulls.DefaultIfEmpty()
                         where !productReview.Product.LimitedToStores || storeMapping.StoreId == storeId
@@ -1686,6 +2215,7 @@ namespace Nop.Services.Catalog
                 if (productReview != null)
                     sortedProductReviews.Add(productReview);
             }
+
             return sortedProductReviews;
         }
 
@@ -1700,7 +2230,7 @@ namespace Nop.Services.Catalog
 
             _productReviewRepository.Delete(productReview);
 
-            _cacheManager.RemoveByPattern(PRODUCTS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopCatalogDefaults.ProductsPrefixCacheKey);
             //event notification
             _eventPublisher.EntityDeleted(productReview);
         }
@@ -1716,7 +2246,7 @@ namespace Nop.Services.Catalog
 
             _productReviewRepository.Delete(productReviews);
 
-            _cacheManager.RemoveByPattern(PRODUCTS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopCatalogDefaults.ProductsPrefixCacheKey);
             //event notification
             foreach (var productReview in productReviews)
             {
@@ -1739,7 +2269,7 @@ namespace Nop.Services.Catalog
 
             _productWarehouseInventoryRepository.Delete(pwi);
 
-            _cacheManager.RemoveByPattern(PRODUCTS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopCatalogDefaults.ProductsPrefixCacheKey);
         }
 
         #endregion

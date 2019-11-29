@@ -3,10 +3,10 @@ using System.Linq;
 using Nop.Core.Domain.Catalog;
 using Nop.Services.Catalog;
 using Nop.Services.Localization;
-using Nop.Web.Areas.Admin.Extensions;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
 using Nop.Web.Areas.Admin.Models.Catalog;
-using Nop.Web.Framework.Extensions;
 using Nop.Web.Framework.Factories;
+using Nop.Web.Framework.Models.Extensions;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -17,6 +17,7 @@ namespace Nop.Web.Areas.Admin.Factories
     {
         #region Fields
 
+        private readonly ILocalizationService _localizationService;
         private readonly ILocalizedModelFactory _localizedModelFactory;
         private readonly ISpecificationAttributeService _specificationAttributeService;
 
@@ -24,11 +25,13 @@ namespace Nop.Web.Areas.Admin.Factories
 
         #region Ctor
 
-        public SpecificationAttributeModelFactory(ILocalizedModelFactory localizedModelFactory,
+        public SpecificationAttributeModelFactory(ILocalizationService localizationService,
+            ILocalizedModelFactory localizedModelFactory,
             ISpecificationAttributeService specificationAttributeService)
         {
-            this._localizedModelFactory = localizedModelFactory;
-            this._specificationAttributeService = specificationAttributeService;
+            _localizationService = localizationService;
+            _localizedModelFactory = localizedModelFactory;
+            _specificationAttributeService = specificationAttributeService;
         }
 
         #endregion
@@ -57,7 +60,7 @@ namespace Nop.Web.Areas.Admin.Factories
 
             return searchModel;
         }
-
+        
         /// <summary>
         /// Prepare search model of products that use the specification attribute
         /// </summary>
@@ -116,12 +119,11 @@ namespace Nop.Web.Areas.Admin.Factories
                 .GetSpecificationAttributes(searchModel.Page - 1, searchModel.PageSize);
 
             //prepare list model
-            var model = new SpecificationAttributeListModel
+            var model = new SpecificationAttributeListModel().PrepareToGrid(searchModel, specificationAttributes, () =>
             {
                 //fill in model values from the entity
-                Data = specificationAttributes.Select(attribute => attribute.ToModel()),
-                Total = specificationAttributes.TotalCount
-            };
+                return specificationAttributes.Select(attribute => attribute.ToModel<SpecificationAttributeModel>());
+            });
 
             return model;
         }
@@ -141,7 +143,7 @@ namespace Nop.Web.Areas.Admin.Factories
             if (specificationAttribute != null)
             {
                 //fill in model values from the entity
-                model = model ?? specificationAttribute.ToModel();
+                model = model ?? specificationAttribute.ToModel<SpecificationAttributeModel>();
 
                 //prepare nested search models
                 PrepareSpecificationAttributeOptionSearchModel(model.SpecificationAttributeOptionSearchModel, specificationAttribute);
@@ -150,7 +152,7 @@ namespace Nop.Web.Areas.Admin.Factories
                 //define localized model configuration action
                 localizedModelConfiguration = (locale, languageId) =>
                 {
-                    locale.Name = specificationAttribute.GetLocalized(entity => entity.Name, languageId, false, false);
+                    locale.Name = _localizationService.GetLocalized(specificationAttribute, entity => entity.Name, languageId, false, false);
                 };
             }
 
@@ -177,24 +179,24 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(specificationAttribute));
 
             //get specification attribute options
-            var options = _specificationAttributeService.GetSpecificationAttributeOptionsBySpecificationAttribute(specificationAttribute.Id);
+            var options = _specificationAttributeService
+                .GetSpecificationAttributeOptionsBySpecificationAttribute(specificationAttribute.Id).ToPagedList(searchModel);
 
             //prepare list model
-            var model = new SpecificationAttributeOptionListModel
+            var model = new SpecificationAttributeOptionListModel().PrepareToGrid(searchModel, options, () =>
             {
-                Data = options.PaginationByRequestModel(searchModel).Select(option =>
+                return options.Select(option =>
                 {
                     //fill in model values from the entity
-                    var optionModel = option.ToModel();
+                    var optionModel = option.ToModel<SpecificationAttributeOptionModel>();
 
                     //in order to save performance to do not check whether a product is deleted, etc
                     optionModel.NumberOfAssociatedProducts = _specificationAttributeService
                         .GetProductSpecificationAttributeCount(specificationAttributeOptionId: option.Id);
 
                     return optionModel;
-                }),
-                Total = options.Count
-            };
+                });
+            });
 
             return model;
         }
@@ -219,14 +221,14 @@ namespace Nop.Web.Areas.Admin.Factories
             if (specificationAttributeOption != null)
             {
                 //fill in model values from the entity
-                model = model ?? specificationAttributeOption.ToModel();
+                model = model ?? specificationAttributeOption.ToModel<SpecificationAttributeOptionModel>();
 
                 model.EnableColorSquaresRgb = !string.IsNullOrEmpty(specificationAttributeOption.ColorSquaresRgb);
 
                 //define localized model configuration action
                 localizedModelConfiguration = (locale, languageId) =>
                 {
-                    locale.Name = specificationAttributeOption.GetLocalized(entity => entity.Name, languageId, false, false);
+                    locale.Name = _localizationService.GetLocalized(specificationAttributeOption, entity => entity.Name, languageId, false, false);
                 };
             }
 
@@ -260,18 +262,19 @@ namespace Nop.Web.Areas.Admin.Factories
                 pageIndex: searchModel.Page - 1, pageSize: searchModel.PageSize);
 
             //prepare list model
-            var model = new SpecificationAttributeProductListModel
+            var model = new SpecificationAttributeProductListModel().PrepareToGrid(searchModel, products, () =>
             {
                 //fill in model values from the entity
-                Data = products.Select(product => new SpecificationAttributeProductModel
+                return products.Select(product =>
                 {
-                    SpecificationAttributeId = specificationAttribute.Id,
-                    ProductId = product.Id,
-                    ProductName = product.Name,
-                    Published = product.Published
-                }),
-                Total = products.TotalCount
-            };
+                    var specificationAttributeProductModel = product.ToModel<SpecificationAttributeProductModel>();
+                    specificationAttributeProductModel.ProductId = product.Id;
+                    specificationAttributeProductModel.ProductName = product.Name;
+                    specificationAttributeProductModel.SpecificationAttributeId = specificationAttribute.Id;
+
+                    return specificationAttributeProductModel;
+                });
+            });
 
             return model;
         }

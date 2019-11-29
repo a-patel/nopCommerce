@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Nop.Core;
@@ -17,35 +17,27 @@ namespace Nop.Services.Blogs
     {
         #region Fields
 
-        private readonly IRepository<BlogPost> _blogPostRepository;
-        private readonly IRepository<BlogComment> _blogCommentRepository;
-        private readonly IRepository<StoreMapping> _storeMappingRepository;
         private readonly CatalogSettings _catalogSettings;
         private readonly IEventPublisher _eventPublisher;
+        private readonly IRepository<BlogComment> _blogCommentRepository;
+        private readonly IRepository<BlogPost> _blogPostRepository;
+        private readonly IRepository<StoreMapping> _storeMappingRepository;
 
         #endregion
 
         #region Ctor
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="blogPostRepository">Blog post repository</param>
-        /// <param name="blogCommentRepository">Blog comment repository</param>
-        /// <param name="storeMappingRepository">Store mapping repository</param>
-        /// <param name="catalogSettings">Catalog settings</param>
-        /// <param name="eventPublisher">Event publisher</param>
-        public BlogService(IRepository<BlogPost> blogPostRepository,
+        public BlogService(CatalogSettings catalogSettings,
+            IEventPublisher eventPublisher,
             IRepository<BlogComment> blogCommentRepository,
-            IRepository<StoreMapping> storeMappingRepository,
-            CatalogSettings catalogSettings, 
-            IEventPublisher eventPublisher)
+            IRepository<BlogPost> blogPostRepository,
+            IRepository<StoreMapping> storeMappingRepository)
         {
-            this._blogPostRepository = blogPostRepository;
-            this._blogCommentRepository = blogCommentRepository;
-            this._storeMappingRepository = storeMappingRepository;
-            this._catalogSettings = catalogSettings;
-            this._eventPublisher = eventPublisher;
+            _catalogSettings = catalogSettings;
+            _eventPublisher = eventPublisher;
+            _blogCommentRepository = blogCommentRepository;
+            _blogPostRepository = blogPostRepository;
+            _storeMappingRepository = storeMappingRepository;
         }
 
         #endregion
@@ -126,16 +118,16 @@ namespace Nop.Services.Blogs
                 //Store mapping
                 query = from bp in query
                         join sm in _storeMappingRepository.Table
-                        on new { c1 = bp.Id, c2 = "BlogPost" } equals new { c1 = sm.EntityId, c2 = sm.EntityName } into bp_sm
+                        on new { c1 = bp.Id, c2 = nameof(BlogPost) } equals new { c1 = sm.EntityId, c2 = sm.EntityName } into bp_sm
                         from sm in bp_sm.DefaultIfEmpty()
                         where !bp.LimitedToStores || storeId == sm.StoreId
                         select bp;
-                
+
                 query = query.Distinct();
             }
 
             query = query.OrderByDescending(b => b.StartDateUtc ?? b.CreatedOnUtc);
-            
+
             var blogPosts = new PagedList<BlogPost>(query, pageIndex, pageSize);
             return blogPosts;
         }
@@ -161,7 +153,7 @@ namespace Nop.Services.Blogs
             var taggedBlogPosts = new List<BlogPost>();
             foreach (var blogPost in blogPostsAll)
             {
-                var tags = blogPost.ParseTags();
+                var tags = ParseTags(blogPost);
                 if (!string.IsNullOrEmpty(tags.FirstOrDefault(t => t.Equals(tag, StringComparison.InvariantCultureIgnoreCase))))
                     taggedBlogPosts.Add(blogPost);
             }
@@ -185,7 +177,7 @@ namespace Nop.Services.Blogs
             var blogPosts = GetAllBlogPosts(storeId: storeId, languageId: languageId, showHidden: showHidden);
             foreach (var blogPost in blogPosts)
             {
-                var tags = blogPost.ParseTags();
+                var tags = ParseTags(blogPost);
                 foreach (var tag in tags)
                 {
                     var foundBlogPostTag = blogPostTags.Find(bpt => bpt.Name.Equals(tag, StringComparison.InvariantCultureIgnoreCase));
@@ -207,7 +199,7 @@ namespace Nop.Services.Blogs
         }
 
         /// <summary>
-        /// Inserts an blog post
+        /// Inserts a blog post
         /// </summary>
         /// <param name="blogPost">Blog post</param>
         public virtual void InsertBlogPost(BlogPost blogPost)
@@ -234,6 +226,63 @@ namespace Nop.Services.Blogs
 
             //event notification
             _eventPublisher.EntityUpdated(blogPost);
+        }
+
+        /// <summary>
+        /// Returns all posts published between the two dates.
+        /// </summary>
+        /// <param name="blogPosts">Source</param>
+        /// <param name="dateFrom">Date from</param>
+        /// <param name="dateTo">Date to</param>
+        /// <returns>Filtered posts</returns>
+        public virtual IList<BlogPost> GetPostsByDate(IList<BlogPost> blogPosts, DateTime dateFrom, DateTime dateTo)
+        {
+            if (blogPosts == null)
+                throw new ArgumentNullException(nameof(blogPosts));
+
+            return blogPosts
+                .Where(p => dateFrom.Date <= (p.StartDateUtc ?? p.CreatedOnUtc) && (p.StartDateUtc ?? p.CreatedOnUtc).Date <= dateTo)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Parse tags
+        /// </summary>
+        /// <param name="blogPost">Blog post</param>
+        /// <returns>Tags</returns>
+        public virtual IList<string> ParseTags(BlogPost blogPost) 
+        {
+            if (blogPost == null)
+                throw new ArgumentNullException(nameof(blogPost));
+
+            if (blogPost.Tags == null)
+                return new List<string>();
+
+            var tags = blogPost.Tags.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(tag => tag?.Trim())
+                .Where(tag => !string.IsNullOrEmpty(tag)).ToList();
+
+            return tags;
+        }
+
+        /// <summary>
+        /// Get a value indicating whether a blog post is available now (availability dates)
+        /// </summary>
+        /// <param name="blogPost">Blog post</param>
+        /// <param name="dateTime">Datetime to check; pass null to use current date</param>
+        /// <returns>Result</returns>
+        public virtual bool BlogPostIsAvailable(BlogPost blogPost, DateTime? dateTime = null)
+        {
+            if (blogPost == null)
+                throw new ArgumentNullException(nameof(blogPost));
+
+            if (blogPost.StartDateUtc.HasValue && blogPost.StartDateUtc.Value >= (dateTime ?? DateTime.UtcNow))
+                return false;
+
+            if (blogPost.EndDateUtc.HasValue && blogPost.EndDateUtc.Value <= (dateTime ?? DateTime.UtcNow))
+                return false;
+
+            return true;
         }
 
         #endregion
@@ -317,6 +366,7 @@ namespace Nop.Services.Blogs
                 if (comment != null)
                     sortedComments.Add(comment);
             }
+
             return sortedComments;
         }
 

@@ -1,6 +1,4 @@
-using System;
 using System.Linq;
-using Nop.Core.Data;
 using Nop.Core.Domain.Common;
 using Nop.Data;
 
@@ -13,26 +11,15 @@ namespace Nop.Services.Common
     {
         #region Fields
 
-        private readonly IDataProvider _dataProvider;
         private readonly IDbContext _dbContext;
-        private readonly CommonSettings _commonSettings;
 
         #endregion
 
         #region Ctor
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="dataProvider">Data provider</param>
-        /// <param name="dbContext">Database Context</param>
-        /// <param name="commonSettings">Common settings</param>
-        public FulltextService(IDataProvider dataProvider, IDbContext dbContext,
-            CommonSettings commonSettings)
+        public FulltextService(IDbContext dbContext)
         {
-            this._dataProvider = dataProvider;
-            this._dbContext = dbContext;
-            this._commonSettings = commonSettings;
+            _dbContext = dbContext;
         }
 
         #endregion
@@ -57,7 +44,6 @@ namespace Nop.Services.Common
         public virtual void EnableFullText()
         {
             _dbContext.ExecuteSqlCommand("EXEC [FullText_Enable]", true);
-            
         }
 
         /// <summary>

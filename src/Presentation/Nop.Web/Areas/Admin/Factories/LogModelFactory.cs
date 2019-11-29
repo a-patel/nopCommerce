@@ -1,12 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
-using Nop.Core;
 using Nop.Core.Domain.Logging;
 using Nop.Core.Html;
 using Nop.Services.Helpers;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
 using Nop.Web.Areas.Admin.Models.Logging;
+using Nop.Web.Framework.Models.DataTables;
+using Nop.Web.Framework.Models.Extensions;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -21,7 +24,6 @@ namespace Nop.Web.Areas.Admin.Factories
         private readonly IDateTimeHelper _dateTimeHelper;
         private readonly ILocalizationService _localizationService;
         private readonly ILogger _logger;
-        private readonly IWorkContext _workContext;
 
         #endregion
 
@@ -30,14 +32,12 @@ namespace Nop.Web.Areas.Admin.Factories
         public LogModelFactory(IBaseAdminModelFactory baseAdminModelFactory,
             IDateTimeHelper dateTimeHelper,
             ILocalizationService localizationService,
-            ILogger logger,
-            IWorkContext workContext)
+            ILogger logger)
         {
-            this._baseAdminModelFactory = baseAdminModelFactory;
-            this._dateTimeHelper = dateTimeHelper;
-            this._localizationService = localizationService;
-            this._logger = logger;
-            this._workContext = workContext;
+            _baseAdminModelFactory = baseAdminModelFactory;
+            _dateTimeHelper = dateTimeHelper;
+            _localizationService = localizationService;
+            _logger = logger;
         }
 
         #endregion
@@ -88,36 +88,26 @@ namespace Nop.Web.Areas.Admin.Factories
                 pageIndex: searchModel.Page - 1, pageSize: searchModel.PageSize);
 
             //prepare list model
-            var model = new LogListModel
+            var model = new LogListModel().PrepareToGrid(searchModel, logItems, () =>
             {
                 //fill in model values from the entity
-                Data = logItems.Select(logItem =>
+                return logItems.Select(logItem =>
                 {
                     //fill in model values from the entity
-                    var logModel = new LogModel
-                    {
-                        Id = logItem.Id,
-                        IpAddress = logItem.IpAddress,
-                        CustomerId = logItem.CustomerId,
-                        PageUrl = logItem.PageUrl,
-                        ReferrerUrl = logItem.ReferrerUrl
-                    };
-
-                    //little performance optimization: ensure that "FullMessage" is not returned
-                    logModel.FullMessage = string.Empty;
+                    var logModel = logItem.ToModel<LogModel>();
 
                     //convert dates to the user time
                     logModel.CreatedOn = _dateTimeHelper.ConvertToUserTime(logItem.CreatedOnUtc, DateTimeKind.Utc);
 
                     //fill in additional values (not existing in the entity)
-                    logModel.CustomerEmail = logItem.Customer?.Email;
-                    logModel.LogLevel = logItem.LogLevel.GetLocalizedEnum(_localizationService, _workContext);
+                    logModel.LogLevel = _localizationService.GetLocalizedEnum(logItem.LogLevel);
                     logModel.ShortMessage = HtmlHelper.FormatText(logItem.ShortMessage, false, true, false, false, false, false);
+                    logModel.FullMessage = string.Empty;
+                    logModel.CustomerEmail = logItem.Customer?.Email ?? string.Empty;
 
                     return logModel;
-                }),
-                Total = logItems.TotalCount
-            };
+                });
+            });
 
             return model;
         }
@@ -134,21 +124,17 @@ namespace Nop.Web.Areas.Admin.Factories
             if (log != null)
             {
                 //fill in model values from the entity
-                model = model ?? new LogModel
+                if (model == null)
                 {
-                    Id = log.Id,
-                    LogLevel = log.LogLevel.GetLocalizedEnum(_localizationService, _workContext),
-                    ShortMessage = HtmlHelper.FormatText(log.ShortMessage, false, true, false, false, false, false),
-                    FullMessage = HtmlHelper.FormatText(log.FullMessage, false, true, false, false, false, false),
-                    IpAddress = log.IpAddress,
-                    CustomerId = log.CustomerId,
-                    CustomerEmail = log.Customer?.Email,
-                    PageUrl = log.PageUrl,
-                    ReferrerUrl = log.ReferrerUrl,
-                    CreatedOn = _dateTimeHelper.ConvertToUserTime(log.CreatedOnUtc, DateTimeKind.Utc)
-                };
-            }
+                    model = log.ToModel<LogModel>();
 
+                    model.LogLevel = _localizationService.GetLocalizedEnum(log.LogLevel);
+                    model.ShortMessage = HtmlHelper.FormatText(log.ShortMessage, false, true, false, false, false, false);
+                    model.FullMessage = HtmlHelper.FormatText(log.FullMessage, false, true, false, false, false, false);
+                    model.CreatedOn = _dateTimeHelper.ConvertToUserTime(log.CreatedOnUtc, DateTimeKind.Utc);
+                    model.CustomerEmail = log.Customer?.Email ?? string.Empty;
+                }
+            }
             return model;
         }
 

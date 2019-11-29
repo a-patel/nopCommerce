@@ -3,20 +3,24 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Security.Principal;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Net.Http.Headers;
 using Nop.Core;
+using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
+using Nop.Core.Domain.Common;
+using Nop.Core.Configuration;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Directory;
 using Nop.Core.Domain.Orders;
+using Nop.Core.Domain.Security;
 using Nop.Core.Infrastructure;
-using Nop.Core.Plugins;
+using Nop.Services.Authentication.External;
 using Nop.Services.Catalog;
+using Nop.Services.Cms;
 using Nop.Services.Common;
 using Nop.Services.Customers;
 using Nop.Services.Directory;
@@ -24,11 +28,16 @@ using Nop.Services.Helpers;
 using Nop.Services.Localization;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
+using Nop.Services.Plugins;
 using Nop.Services.Seo;
+using Nop.Services.Shipping;
+using Nop.Services.Shipping.Pickup;
 using Nop.Services.Stores;
-using Nop.Web.Areas.Admin.Extensions;
+using Nop.Services.Tax;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
 using Nop.Web.Areas.Admin.Models.Common;
-using Nop.Web.Framework.Extensions;
+using Nop.Web.Areas.Admin.Models.Localization;
+using Nop.Web.Framework.Models.Extensions;
 using Nop.Web.Framework.Security;
 
 namespace Nop.Web.Areas.Admin.Factories
@@ -40,84 +49,120 @@ namespace Nop.Web.Areas.Admin.Factories
     {
         #region Fields
 
+        private readonly AdminAreaSettings _adminAreaSettings;
         private readonly CatalogSettings _catalogSettings;
         private readonly CurrencySettings _currencySettings;
         private readonly IActionContextAccessor _actionContextAccessor;
+        private readonly IAuthenticationPluginManager _authenticationPluginManager;
         private readonly ICurrencyService _currencyService;
         private readonly ICustomerService _customerService;
         private readonly IDateTimeHelper _dateTimeHelper;
+        private readonly IExchangeRatePluginManager _exchangeRatePluginManager;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILanguageService _languageService;
         private readonly ILocalizationService _localizationService;
         private readonly IMaintenanceService _maintenanceService;
         private readonly IMeasureService _measureService;
+        private readonly INopFileProvider _fileProvider;
         private readonly IOrderService _orderService;
-        private readonly IPaymentService _paymentService;
+        private readonly IPaymentPluginManager _paymentPluginManager;
+        private readonly IPickupPluginManager _pickupPluginManager;
+        private readonly IPluginService _pluginService;
         private readonly IProductService _productService;
         private readonly IReturnRequestService _returnRequestService;
         private readonly ISearchTermService _searchTermService;
+        private readonly IShippingPluginManager _shippingPluginManager;
+        private readonly IStaticCacheManager _cacheManager;
         private readonly IStoreContext _storeContext;
         private readonly IStoreService _storeService;
+        private readonly ITaxPluginManager _taxPluginManager;
         private readonly IUrlHelperFactory _urlHelperFactory;
         private readonly IUrlRecordService _urlRecordService;
         private readonly IWebHelper _webHelper;
+        private readonly IWidgetPluginManager _widgetPluginManager;
         private readonly IWorkContext _workContext;
         private readonly MeasureSettings _measureSettings;
-        private readonly INopFileProvider _fileProvider;
+        private readonly NopConfig _nopConfig;
+        private readonly NopHttpClient _nopHttpClient;
+        private readonly ProxySettings _proxySettings;
 
         #endregion
 
         #region Ctor
 
-        public CommonModelFactory(CatalogSettings catalogSettings,
+        public CommonModelFactory(AdminAreaSettings adminAreaSettings,
+            CatalogSettings catalogSettings,
             CurrencySettings currencySettings,
             IActionContextAccessor actionContextAccessor,
+            IAuthenticationPluginManager authenticationPluginManager,
             ICurrencyService currencyService,
             ICustomerService customerService,
             IDateTimeHelper dateTimeHelper,
+            INopFileProvider fileProvider,
+            IExchangeRatePluginManager exchangeRatePluginManager,
             IHttpContextAccessor httpContextAccessor,
             ILanguageService languageService,
             ILocalizationService localizationService,
             IMaintenanceService maintenanceService,
             IMeasureService measureService,
             IOrderService orderService,
-            IPaymentService paymentService,
+            IPaymentPluginManager paymentPluginManager,
+            IPickupPluginManager pickupPluginManager,
+            IPluginService pluginService,
             IProductService productService,
             IReturnRequestService returnRequestService,
             ISearchTermService searchTermService,
+            IShippingPluginManager shippingPluginManager,
+            IStaticCacheManager cacheManager,
             IStoreContext storeContext,
             IStoreService storeService,
+            ITaxPluginManager taxPluginManager,
             IUrlHelperFactory urlHelperFactory,
             IUrlRecordService urlRecordService,
             IWebHelper webHelper,
+            IWidgetPluginManager widgetPluginManager,
             IWorkContext workContext,
             MeasureSettings measureSettings,
-            INopFileProvider fileProvider)
+            NopConfig nopConfig,
+            NopHttpClient nopHttpClient,
+            ProxySettings proxySettings)
         {
-            this._catalogSettings = catalogSettings;
-            this._currencySettings = currencySettings;
-            this._actionContextAccessor = actionContextAccessor;
-            this._currencyService = currencyService;
-            this._customerService = customerService;
-            this._dateTimeHelper = dateTimeHelper;
-            this._httpContextAccessor = httpContextAccessor;
-            this._languageService = languageService;
-            this._localizationService = localizationService;
-            this._maintenanceService = maintenanceService;
-            this._measureService = measureService;
-            this._orderService = orderService;
-            this._paymentService = paymentService;
-            this._productService = productService;
-            this._returnRequestService = returnRequestService;
-            this._searchTermService = searchTermService;
-            this._storeContext = storeContext;
-            this._storeService = storeService;
-            this._urlHelperFactory = urlHelperFactory;
-            this._urlRecordService = urlRecordService;
-            this._webHelper = webHelper;
-            this._workContext = workContext;
-            this._measureSettings = measureSettings;
-            this._fileProvider = fileProvider;
+            _adminAreaSettings = adminAreaSettings;
+            _catalogSettings = catalogSettings;
+            _currencySettings = currencySettings;
+            _actionContextAccessor = actionContextAccessor;
+            _authenticationPluginManager = authenticationPluginManager;
+            _currencyService = currencyService;
+            _customerService = customerService;
+            _dateTimeHelper = dateTimeHelper;
+            _exchangeRatePluginManager = exchangeRatePluginManager;
+            _httpContextAccessor = httpContextAccessor;
+            _languageService = languageService;
+            _localizationService = localizationService;
+            _maintenanceService = maintenanceService;
+            _measureService = measureService;
+            _fileProvider = fileProvider;
+            _orderService = orderService;
+            _paymentPluginManager = paymentPluginManager;
+            _pickupPluginManager = pickupPluginManager;
+            _pluginService = pluginService;
+            _productService = productService;
+            _returnRequestService = returnRequestService;
+            _searchTermService = searchTermService;
+            _shippingPluginManager = shippingPluginManager;
+            _cacheManager = cacheManager;
+            _storeContext = storeContext;
+            _storeService = storeService;
+            _taxPluginManager = taxPluginManager;
+            _urlHelperFactory = urlHelperFactory;
+            _urlRecordService = urlRecordService;
+            _webHelper = webHelper;
+            _widgetPluginManager = widgetPluginManager;
+            _workContext = workContext;
+            _measureSettings = measureSettings;
+            _nopConfig = nopConfig;
+            _nopHttpClient = nopHttpClient;
+            _proxySettings = proxySettings;
         }
 
         #endregion
@@ -152,6 +197,36 @@ namespace Nop.Web.Areas.Admin.Factories
                 Level = SystemWarningLevel.Fail,
                 Text = string.Format(_localizationService.GetResource("Admin.System.Warnings.URL.NoMatch"),
                     currentStoreUrl, _webHelper.GetStoreLocation(false))
+            });
+        }
+
+        /// <summary>
+        /// Prepare copyright removal key warning model
+        /// </summary>
+        /// <param name="models">List of system warning models</param>
+        protected virtual void PrepareRemovalKeyWarningModel(IList<SystemWarningModel> models)
+        {
+            if (models == null)
+                throw new ArgumentNullException(nameof(models));
+
+            if (!_adminAreaSettings.CheckCopyrightRemovalKey)
+                return;
+
+            //try to get a warning
+            var warning = string.Empty;
+            try
+            {
+                warning = _nopHttpClient.GetCopyrightWarningAsync().Result;
+            }
+            catch { }
+            if (string.IsNullOrEmpty(warning))
+                return;
+
+            models.Add(new SystemWarningModel
+            {
+                Level = SystemWarningLevel.CopyrightRemovalKey,
+                Text = warning,
+                DontEncode = true //this text could contain links, so don't encode it
             });
         }
 
@@ -307,7 +382,7 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(models));
 
             //check whether payment methods activated
-            if (_paymentService.LoadActivePaymentMethods().Any())
+            if (_paymentPluginManager.LoadAllPlugins().Any())
             {
                 models.Add(new SystemWarningModel
                 {
@@ -334,15 +409,29 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(models));
 
             //check whether there are incompatible plugins
-            if (!PluginManager.IncompatiblePlugins?.Any() ?? true)
-                return;
-
-            foreach (var pluginName in PluginManager.IncompatiblePlugins)
+            foreach (var pluginName in _pluginService.GetIncompatiblePlugins())
             {
                 models.Add(new SystemWarningModel
                 {
                     Level = SystemWarningLevel.Warning,
                     Text = string.Format(_localizationService.GetResource("Admin.System.Warnings.PluginNotLoaded"), pluginName)
+                });
+            }
+
+            //check whether there are any collision of loaded assembly
+            foreach (var assembly in _pluginService.GetAssemblyCollisions())
+            {
+                //get plugin references message
+                var message = assembly.Collisions
+                    .Select(item => string.Format(_localizationService
+                        .GetResource("Admin.System.Warnings.PluginRequiredAssembly"), item.PluginName, item.AssemblyName))
+                    .Aggregate("", (curent, all) => all + ", " + curent).TrimEnd(',', ' ');
+
+                models.Add(new SystemWarningModel
+                {
+                    Level = SystemWarningLevel.Warning,
+                    Text = string.Format(_localizationService.GetResource("Admin.System.Warnings.AssemblyHasCollision"),
+                        assembly.ShortName, assembly.AssemblyFullNameInMemory, message)
                 });
             }
         }
@@ -361,7 +450,7 @@ namespace Nop.Web.Areas.Admin.Factories
             {
                 models.Add(new SystemWarningModel
                 {
-                    Level = SystemWarningLevel.Warning,
+                    Level = SystemWarningLevel.Recommendation,
                     Text = _localizationService.GetResource("Admin.System.Warnings.Performance.IgnoreStoreLimitations")
                 });
             }
@@ -371,7 +460,7 @@ namespace Nop.Web.Areas.Admin.Factories
             {
                 models.Add(new SystemWarningModel
                 {
-                    Level = SystemWarningLevel.Warning,
+                    Level = SystemWarningLevel.Recommendation,
                     Text = _localizationService.GetResource("Admin.System.Warnings.Performance.IgnoreAcl")
                 });
             }
@@ -397,7 +486,7 @@ namespace Nop.Web.Areas.Admin.Factories
                 {
                     Level = SystemWarningLevel.Warning,
                     Text = string.Format(_localizationService.GetResource("Admin.System.Warnings.DirectoryPermission.Wrong"),
-                        WindowsIdentity.GetCurrent().Name, dir)
+                        CurrentOSUser.FullName, dir)
                 });
                 dirPermissionsOk = false;
             }
@@ -422,7 +511,7 @@ namespace Nop.Web.Areas.Admin.Factories
                 {
                     Level = SystemWarningLevel.Warning,
                     Text = string.Format(_localizationService.GetResource("Admin.System.Warnings.FilePermission.Wrong"),
-                        WindowsIdentity.GetCurrent().Name, file)
+                        CurrentOSUser.FullName, file)
                 });
                 filePermissionsOk = false;
             }
@@ -453,6 +542,67 @@ namespace Nop.Web.Areas.Admin.Factories
             return searchModel;
         }
 
+        /// <summary>
+        /// Prepare plugins enabled warning model
+        /// </summary>
+        /// <param name="models">List of system warning models</param>
+        protected virtual void PreparePluginsEnabledWarningModel(List<SystemWarningModel> models)
+        {
+            var plugins = _pluginService.GetPlugins<IPlugin>();
+
+            var notEnabled = new List<string>();
+
+            foreach (var plugin in plugins)
+            {
+                var isEnabled = true;
+
+                switch (plugin)
+                {
+                    case IPaymentMethod paymentMethod:
+                        isEnabled = _paymentPluginManager.IsPluginActive(paymentMethod);
+                        break;
+
+                    case IShippingRateComputationMethod shippingRateComputationMethod:
+                        isEnabled = _shippingPluginManager.IsPluginActive(shippingRateComputationMethod);
+                        break;
+
+                    case IPickupPointProvider pickupPointProvider:
+                        isEnabled = _pickupPluginManager.IsPluginActive(pickupPointProvider);
+                        break;
+
+                    case ITaxProvider taxProvider:
+                        isEnabled = _taxPluginManager.IsPluginActive(taxProvider);
+                        break;
+
+                    case IExternalAuthenticationMethod externalAuthenticationMethod:
+                        isEnabled = _authenticationPluginManager.IsPluginActive(externalAuthenticationMethod);
+                        break;
+
+                    case IWidgetPlugin widgetPlugin:
+                        isEnabled = _widgetPluginManager.IsPluginActive(widgetPlugin);
+                        break;
+
+                    case IExchangeRateProvider exchangeRateProvider:
+                        isEnabled = _exchangeRatePluginManager.IsPluginActive(exchangeRateProvider);
+                        break;
+                }
+
+                if (isEnabled)
+                    continue;
+
+                notEnabled.Add(plugin.PluginDescriptor.FriendlyName);
+            }
+
+            if (notEnabled.Any())
+            {
+                models.Add(new SystemWarningModel
+                {
+                    Level = SystemWarningLevel.Warning,
+                    Text = $"{_localizationService.GetResource("Admin.System.Warnings.PluginNotEnabled")}: {string.Join(", ", notEnabled)}"
+                });
+            }
+        }
+        
         #endregion
 
         #region Methods
@@ -468,7 +618,7 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(model));
 
             model.NopVersion = NopVersion.CurrentVersion;
-            model.ServerTimeZone = TimeZone.CurrentTimeZone.StandardName;
+            model.ServerTimeZone = TimeZoneInfo.Local.StandardName;
             model.ServerLocalTime = DateTime.Now;
             model.UtcTime = DateTime.UtcNow;
             model.CurrentUserTime = _dateTimeHelper.ConvertToUserTime(DateTime.Now);
@@ -510,13 +660,57 @@ namespace Nop.Web.Areas.Admin.Factories
                     //we use a simple method because the more Jeff Atwood's solution doesn't work anymore 
                     //more info at https://blog.codinghorror.com/determining-build-date-the-hard-way/
                     loadedAssemblyModel.BuildDate = assembly.IsDynamic ? null : (DateTime?)TimeZoneInfo.ConvertTimeFromUtc(_fileProvider.GetLastWriteTimeUtc(assembly.Location), TimeZoneInfo.Local);
-                        
+
                 }
                 catch { }
                 model.LoadedAssemblies.Add(loadedAssemblyModel);
             }
+            
+            model.CurrentStaticCacheManager = _cacheManager.GetType().Name;
+
+            model.RedisEnabled = _nopConfig.RedisEnabled;
+            model.UseRedisToStoreDataProtectionKeys = _nopConfig.UseRedisToStoreDataProtectionKeys;
+            model.UseRedisForCaching = _nopConfig.UseRedisForCaching;
+            model.UseRedisToStorePluginsInfo = _nopConfig.UseRedisToStorePluginsInfo;
+
+            model.AzureBlobStorageEnabled = _nopConfig.AzureBlobStorageEnabled;
 
             return model;
+        }
+
+        /// <summary>
+        /// Prepare proxy connection warning model
+        /// </summary>
+        /// <param name="models">List of system warning models</param>
+        protected virtual void PrepareProxyConnectionWarningModel(IList<SystemWarningModel> models)
+        {
+            if (models == null)
+                throw new ArgumentNullException(nameof(models));
+
+            //whether proxy is enabled
+            if (!_proxySettings.Enabled)
+                return;
+
+            try
+            {
+                _nopHttpClient.PingAsync().Wait();
+
+                //connection is OK
+                models.Add(new SystemWarningModel
+                {
+                    Level = SystemWarningLevel.Pass,
+                    Text = _localizationService.GetResource("Admin.System.Warnings.ProxyConnection.OK")
+                });
+            }
+            catch
+            {
+                //connection failed
+                models.Add(new SystemWarningModel
+                {
+                    Level = SystemWarningLevel.Fail,
+                    Text = _localizationService.GetResource("Admin.System.Warnings.ProxyConnection.Failed")
+                });
+            }
         }
 
         /// <summary>
@@ -529,6 +723,9 @@ namespace Nop.Web.Areas.Admin.Factories
 
             //store URL
             PrepareStoreUrlWarningModel(models);
+
+            //removal key
+            PrepareRemovalKeyWarningModel(models);
 
             //primary exchange rate currency
             PrepareExchangeRateCurrencyWarningModel(models);
@@ -553,6 +750,12 @@ namespace Nop.Web.Areas.Admin.Factories
 
             //validate write permissions (the same procedure like during installation)
             PrepareFilePermissionsWarningModel(models);
+
+            //not active plugins
+            PreparePluginsEnabledWarningModel(models);
+
+            //proxy connection
+            PrepareProxyConnectionWarningModel(models);
 
             return models;
         }
@@ -588,27 +791,19 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get backup files
-            var backupFiles = _maintenanceService.GetAllBackupFiles().ToList();
+            var backupFiles = _maintenanceService.GetAllBackupFiles().ToPagedList(searchModel);
 
             //prepare list model
-            var model = new BackupFileListModel
+            var model = new BackupFileListModel().PrepareToGrid(searchModel, backupFiles, ()=>
             {
-                Data = backupFiles.PaginationByRequestModel(searchModel).Select(file =>
+                return backupFiles.Select(file => new BackupFileModel
                 {
-                    //fill in model values from the entity
-                    var backupFileModel = new BackupFileModel
-                    {
-                        Name = _fileProvider.GetFileName(file)
-                    };
-
+                    Name = _fileProvider.GetFileName(file),
                     //fill in additional values (not existing in the entity)
-                    backupFileModel.Length = $"{_fileProvider.FileLength(file) / 1024f / 1024f:F2} Mb";
-                    backupFileModel.Link = $"{_webHelper.GetStoreLocation(false)}db_backups/{backupFileModel.Name}";
-
-                    return backupFileModel;
-                }),
-                Total = backupFiles.Count
-            };
+                    Length = $"{_fileProvider.FileLength(file) / 1024f / 1024f:F2} Mb",
+                    Link = $"{_webHelper.GetStoreLocation(false)}db_backups/{_fileProvider.GetFileName(file)}"
+                });
+            });
 
             return model;
         }
@@ -647,21 +842,15 @@ namespace Nop.Web.Areas.Admin.Factories
             var urlHelper = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext);
 
             //prepare list model
-            var model = new UrlRecordListModel
+            var model = new UrlRecordListModel().PrepareToGrid(searchModel, urlRecords, () =>
             {
-                Data = urlRecords.Select(urlRecord =>
+                return urlRecords.Select(urlRecord =>
                 {
                     //fill in model values from the entity
-                    var urlRecordModel = new UrlRecordModel
-                    {
-                        Id = urlRecord.Id,
-                        Name = urlRecord.Slug,
-                        EntityId = urlRecord.EntityId,
-                        EntityName = urlRecord.EntityName,
-                        IsActive = urlRecord.IsActive
-                    };
+                    var urlRecordModel = urlRecord.ToModel<UrlRecordModel>();
 
                     //fill in additional values (not existing in the entity)
+                    urlRecordModel.Name = urlRecord.Slug;
                     urlRecordModel.Language = urlRecord.LanguageId == 0
                         ? _localizationService.GetResource("Admin.System.SeNames.Language.Standard")
                         : _languageService.GetLanguageById(urlRecord.LanguageId)?.Name ?? "Unknown";
@@ -672,7 +861,7 @@ namespace Nop.Web.Areas.Admin.Factories
                     switch (entityName)
                     {
                         case "blogpost":
-                            detailsUrl = urlHelper.Action("Edit", "Blog", new { id = urlRecord.EntityId });
+                            detailsUrl = urlHelper.Action("BlogPostEdit", "Blog", new { id = urlRecord.EntityId });
                             break;
                         case "category":
                             detailsUrl = urlHelper.Action("Edit", "Category", new { id = urlRecord.EntityId });
@@ -684,7 +873,7 @@ namespace Nop.Web.Areas.Admin.Factories
                             detailsUrl = urlHelper.Action("Edit", "Product", new { id = urlRecord.EntityId });
                             break;
                         case "newsitem":
-                            detailsUrl = urlHelper.Action("Edit", "News", new { id = urlRecord.EntityId });
+                            detailsUrl = urlHelper.Action("NewsItemEdit", "News", new { id = urlRecord.EntityId });
                             break;
                         case "topic":
                             detailsUrl = urlHelper.Action("Edit", "Topic", new { id = urlRecord.EntityId });
@@ -697,10 +886,8 @@ namespace Nop.Web.Areas.Admin.Factories
                     urlRecordModel.DetailsUrl = detailsUrl;
 
                     return urlRecordModel;
-                }),
-                Total = urlRecords.TotalCount
-            };
-
+                });
+            });
             return model;
         }
 
@@ -712,9 +899,10 @@ namespace Nop.Web.Areas.Admin.Factories
         {
             var model = new LanguageSelectorModel
             {
-                CurrentLanguage = _workContext.WorkingLanguage.ToModel(),
+                CurrentLanguage = _workContext.WorkingLanguage.ToModel<LanguageModel>(),
                 AvailableLanguages = _languageService
-                    .GetAllLanguages(storeId: _storeContext.CurrentStore.Id).Select(language => language.ToModel()).ToList()
+                    .GetAllLanguages(storeId: _storeContext.CurrentStore.Id)
+                    .Select(language => language.ToModel<LanguageModel>()).ToList()
             };
 
             return model;
@@ -731,8 +919,7 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //prepare page parameters
-            searchModel.PageSize = 5;
-            searchModel.AvailablePageSizes = "5";
+            searchModel.SetGridPageSize(5);
 
             return searchModel;
         }
@@ -751,16 +938,14 @@ namespace Nop.Web.Areas.Admin.Factories
             var searchTermRecordLines = _searchTermService.GetStats(pageIndex: searchModel.Page - 1, pageSize: searchModel.PageSize);
 
             //prepare list model
-            var model = new PopularSearchTermListModel
+            var model = new PopularSearchTermListModel().PrepareToGrid(searchModel, searchTermRecordLines, () =>
             {
-                //fill in model values from the entity
-                Data = searchTermRecordLines.Select(searchTerm => new PopularSearchTermModel
+                return searchTermRecordLines.Select(searchTerm => new PopularSearchTermModel
                 {
                     Keyword = searchTerm.Keyword,
                     Count = searchTerm.Count
-                }),
-                Total = searchTermRecordLines.TotalCount
-            };
+                });
+            });
 
             return model;
         }
@@ -776,7 +961,7 @@ namespace Nop.Web.Areas.Admin.Factories
                 NumberOfOrders = _orderService.SearchOrders(pageIndex: 0, pageSize: 1, getOnlyTotalCount: true).TotalCount
             };
 
-            var customerRoleIds = new[] { _customerService.GetCustomerRoleBySystemName(SystemCustomerRoleNames.Registered).Id };
+            var customerRoleIds = new[] { _customerService.GetCustomerRoleBySystemName(NopCustomerDefaults.RegisteredRoleName).Id };
             model.NumberOfCustomers = _customerService.GetAllCustomers(customerRoleIds: customerRoleIds,
                 pageIndex: 0, pageSize: 1, getOnlyTotalCount: true).TotalCount;
 

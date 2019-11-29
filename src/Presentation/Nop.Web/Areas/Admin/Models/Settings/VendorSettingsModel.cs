@@ -7,13 +7,13 @@ namespace Nop.Web.Areas.Admin.Models.Settings
     /// <summary>
     /// Represents a vendor settings model
     /// </summary>
-    public partial class VendorSettingsModel : BaseNopModel
+    public partial class VendorSettingsModel : BaseNopModel, ISettingsModel
     {
         #region Ctor
 
         public VendorSettingsModel()
         {
-            this.VendorAttributeSearchModel = new VendorAttributeSearchModel();
+            VendorAttributeSearchModel = new VendorAttributeSearchModel();
         }
 
         #endregion

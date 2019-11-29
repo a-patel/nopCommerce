@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Nop.Core.Domain.Catalog;
 
@@ -10,12 +10,9 @@ namespace Nop.Services.Payments
     [Serializable]
     public partial class ProcessPaymentRequest
     {
-        /// <summary>
-        /// Ctor
-        /// </summary>
         public ProcessPaymentRequest()
         {
-            this.CustomValues = new Dictionary<string, object>();
+            CustomValues = new Dictionary<string, object>();
         }
 
         /// <summary>
@@ -32,6 +29,10 @@ namespace Nop.Services.Payments
         /// Gets or sets an order unique identifier. Used when order is not saved yet (payment gateways that do not redirect a customer to a third-party URL)
         /// </summary>
         public Guid OrderGuid { get; set; }
+        /// <summary>
+        /// Gets or sets a datetime when "OrderGuid" property was generated (used for security purposes)
+        /// </summary>
+        public DateTime? OrderGuidGeneratedOnUtc { get; set; }
 
         /// <summary>
         /// Gets or sets an order total
@@ -85,7 +86,7 @@ namespace Nop.Services.Payments
         /// Gets or sets an initial (parent) order identifier if order is recurring
         /// </summary>
         public int InitialOrderId { get; set; }
-        
+
         /// <summary>
         /// Gets or sets the cycle length
         /// </summary>

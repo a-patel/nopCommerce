@@ -7,12 +7,9 @@ namespace Nop.Core.Domain.Security
     /// </summary>
     public class DefaultPermissionRecord
     {
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        public DefaultPermissionRecord() 
+        public DefaultPermissionRecord()
         {
-            this.PermissionRecords = new List<PermissionRecord>();
+            PermissionRecords = new List<PermissionRecord>();
         }
 
         /// <summary>

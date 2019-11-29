@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
+using Nop.Services.Messages;
 using Nop.Services.Security;
 using Nop.Web.Areas.Admin.Factories;
 using Nop.Web.Areas.Admin.Models.Logging;
@@ -19,6 +20,7 @@ namespace Nop.Web.Areas.Admin.Controllers
         private readonly ICustomerActivityService _customerActivityService;
         private readonly ILocalizationService _localizationService;
         private readonly IPermissionService _permissionService;
+        private readonly INotificationService _notificationService;
 
         #endregion
 
@@ -27,30 +29,32 @@ namespace Nop.Web.Areas.Admin.Controllers
         public ActivityLogController(IActivityLogModelFactory activityLogModelFactory,
             ICustomerActivityService customerActivityService,
             ILocalizationService localizationService,
+            INotificationService notificationService,
             IPermissionService permissionService)
         {
-            this._activityLogModelFactory = activityLogModelFactory;
-            this._customerActivityService = customerActivityService;
-            this._localizationService = localizationService;
-            this._permissionService = permissionService;
+            _activityLogModelFactory = activityLogModelFactory;
+            _customerActivityService = customerActivityService;
+            _localizationService = localizationService;
+            _notificationService = notificationService;
+            _permissionService = permissionService;
         }
 
         #endregion
 
         #region Methods
 
-        public virtual IActionResult ListTypes()
+        public virtual IActionResult ActivityTypes()
         {
             if (!_permissionService.Authorize(StandardPermissionProvider.ManageActivityLog))
                 return AccessDeniedView();
 
             //prepare model
-            var model = _activityLogModelFactory.PrepareActivityLogTypeModels();
+            var model = _activityLogModelFactory.PrepareActivityLogTypeSearchModel(new ActivityLogTypeSearchModel());
 
             return View(model);
         }
 
-        [HttpPost]
+        [HttpPost, ActionName("SaveTypes")]
         public virtual IActionResult SaveTypes(IFormCollection form)
         {
             if (!_permissionService.Authorize(StandardPermissionProvider.ManageActivityLog))
@@ -73,12 +77,12 @@ namespace Nop.Web.Areas.Admin.Controllers
                 _customerActivityService.UpdateActivityType(activityType);
             }
 
-            SuccessNotification(_localizationService.GetResource("Admin.Configuration.ActivityLog.ActivityLogType.Updated"));
+            _notificationService.SuccessNotification(_localizationService.GetResource("Admin.Configuration.ActivityLog.ActivityLogType.Updated"));
 
-            return RedirectToAction("ListTypes");
+            return RedirectToAction("ActivityTypes");
         }
 
-        public virtual IActionResult ListLogs()
+        public virtual IActionResult ActivityLogs()
         {
             if (!_permissionService.Authorize(StandardPermissionProvider.ManageActivityLog))
                 return AccessDeniedView();
@@ -93,7 +97,7 @@ namespace Nop.Web.Areas.Admin.Controllers
         public virtual IActionResult ListLogs(ActivityLogSearchModel searchModel)
         {
             if (!_permissionService.Authorize(StandardPermissionProvider.ManageActivityLog))
-                return AccessDeniedKendoGridJson();
+                return AccessDeniedDataTablesJson();
 
             //prepare model
             var model = _activityLogModelFactory.PrepareActivityLogListModel(searchModel);
@@ -101,7 +105,8 @@ namespace Nop.Web.Areas.Admin.Controllers
             return Json(model);
         }
 
-        public virtual IActionResult AcivityLogDelete(int id)
+        [HttpPost]
+        public virtual IActionResult ActivityLogDelete(int id)
         {
             if (!_permissionService.Authorize(StandardPermissionProvider.ManageActivityLog))
                 return AccessDeniedView();
@@ -129,7 +134,7 @@ namespace Nop.Web.Areas.Admin.Controllers
             //activity log
             _customerActivityService.InsertActivity("DeleteActivityLog", _localizationService.GetResource("ActivityLog.DeleteActivityLog"));
 
-            return RedirectToAction("ListLogs");
+            return RedirectToAction("ActivityLogs");
         }
 
         #endregion

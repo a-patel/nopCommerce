@@ -3,6 +3,7 @@ using Nop.Core.Domain.Common;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Shipping;
 using Nop.Web.Areas.Admin.Models.Orders;
+using Nop.Web.Areas.Admin.Models.Reports;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -147,57 +148,17 @@ namespace Nop.Web.Areas.Admin.Factories
         BestsellerBriefListModel PrepareBestsellerBriefListModel(BestsellerBriefSearchModel searchModel);
 
         /// <summary>
-        /// Prepare bestseller search model
-        /// </summary>
-        /// <param name="searchModel">Bestseller search model</param>
-        /// <returns>Bestseller search model</returns>
-        BestsellerSearchModel PrepareBestsellerSearchModel(BestsellerSearchModel searchModel);
-
-        /// <summary>
-        /// Prepare paged bestseller list model
-        /// </summary>
-        /// <param name="searchModel">Bestseller search model</param>
-        /// <returns>Bestseller list model</returns>
-        BestsellerListModel PrepareBestsellerListModel(BestsellerSearchModel searchModel);
-
-        /// <summary>
-        /// Prepare never sold report search model
-        /// </summary>
-        /// <param name="searchModel">Never sold report search model</param>
-        /// <returns>Never sold report search model</returns>
-        NeverSoldReportSearchModel PrepareNeverSoldReportSearchModel(NeverSoldReportSearchModel searchModel);
-
-        /// <summary>
-        /// Prepare paged never sold report list model
-        /// </summary>
-        /// <param name="searchModel">Never sold report search model</param>
-        /// <returns>Never sold report list model</returns>
-        NeverSoldReportListModel PrepareNeverSoldReportListModel(NeverSoldReportSearchModel searchModel);
-
-        /// <summary>
-        /// Prepare country report search model
-        /// </summary>
-        /// <param name="searchModel">Country report search model</param>
-        /// <returns>Country report search model</returns>
-        CountryReportSearchModel PrepareCountryReportSearchModel(CountryReportSearchModel searchModel);
-
-        /// <summary>
-        /// Prepare paged country report list model
-        /// </summary>
-        /// <param name="searchModel">Country report search model</param>
-        /// <returns>Country report list model</returns>
-        CountryReportListModel PrepareCountryReportListModel(CountryReportSearchModel searchModel);
-
-        /// <summary>
         /// Prepare order average line summary report list model
         /// </summary>
+        /// <param name="searchModel">Order average line summary report search model</param>
         /// <returns>Order average line summary report list model</returns>
-        OrderAverageReportListModel PrepareOrderAverageReportListModel();
+        OrderAverageReportListModel PrepareOrderAverageReportListModel(OrderAverageReportSearchModel searchModel);
 
         /// <summary>
         /// Prepare incomplete order report list model
         /// </summary>
+        /// <param name="searchModel">Incomplete order report search model</param>
         /// <returns>Incomplete order report list model</returns>
-        OrderIncompleteReportListModel PrepareOrderIncompleteReportListModel();
+        OrderIncompleteReportListModel PrepareOrderIncompleteReportListModel(OrderIncompleteReportSearchModel searchModel);
     }
 }

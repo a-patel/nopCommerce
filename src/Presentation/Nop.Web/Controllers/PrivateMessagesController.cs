@@ -21,36 +21,36 @@ namespace Nop.Web.Controllers
     {
         #region Fields
 
-        private readonly IPrivateMessagesModelFactory _privateMessagesModelFactory;
-        private readonly IForumService _forumService;
-        private readonly ICustomerService _customerService;
-        private readonly ICustomerActivityService _customerActivityService;
-        private readonly ILocalizationService _localizationService;
-        private readonly IWorkContext _workContext;
-        private readonly IStoreContext _storeContext;
         private readonly ForumSettings _forumSettings;
+        private readonly ICustomerActivityService _customerActivityService;
+        private readonly ICustomerService _customerService;
+        private readonly IForumService _forumService;
+        private readonly ILocalizationService _localizationService;
+        private readonly IPrivateMessagesModelFactory _privateMessagesModelFactory;
+        private readonly IStoreContext _storeContext;
+        private readonly IWorkContext _workContext;
 
         #endregion
 
         #region Ctor
 
-        public PrivateMessagesController(IPrivateMessagesModelFactory privateMessagesModelFactory,
-            IForumService forumService,
-            ICustomerService customerService,
+        public PrivateMessagesController(ForumSettings forumSettings,
             ICustomerActivityService customerActivityService,
+            ICustomerService customerService,
+            IForumService forumService,
             ILocalizationService localizationService,
-            IWorkContext workContext, 
+            IPrivateMessagesModelFactory privateMessagesModelFactory,
             IStoreContext storeContext,
-            ForumSettings forumSettings)
+            IWorkContext workContext)
         {
-            this._privateMessagesModelFactory = privateMessagesModelFactory;
-            this._forumService = forumService;
-            this._customerService = customerService;
-            this._customerActivityService = customerActivityService;
-            this._localizationService = localizationService;
-            this._workContext = workContext;
-            this._storeContext = storeContext;
-            this._forumSettings = forumSettings;
+            _forumSettings = forumSettings;
+            _customerActivityService = customerActivityService;
+            _customerService = customerService;
+            _forumService = forumService;
+            _localizationService = localizationService;
+            _privateMessagesModelFactory = privateMessagesModelFactory;
+            _storeContext = storeContext;
+            _workContext = workContext;
         }
 
         #endregion
@@ -61,7 +61,7 @@ namespace Nop.Web.Controllers
         {
             if (!_forumSettings.AllowPrivateMessages)
             {
-                return RedirectToRoute("HomePage");
+                return RedirectToRoute("Homepage");
             }
 
             if (_workContext.CurrentCustomer.IsGuest())
@@ -161,7 +161,7 @@ namespace Nop.Web.Controllers
         public virtual IActionResult SendPM(int toCustomerId, int? replyToMessageId)
         {
             if (!_forumSettings.AllowPrivateMessages)
-                return RedirectToRoute("HomePage");
+                return RedirectToRoute("Homepage");
 
             if (_workContext.CurrentCustomer.IsGuest())
                 return Challenge();
@@ -187,7 +187,7 @@ namespace Nop.Web.Controllers
         {
             if (!_forumSettings.AllowPrivateMessages)
             {
-                return RedirectToRoute("HomePage");
+                return RedirectToRoute("Homepage");
             }
 
             if (_workContext.CurrentCustomer.IsGuest())
@@ -276,7 +276,7 @@ namespace Nop.Web.Controllers
         {
             if (!_forumSettings.AllowPrivateMessages)
             {
-                return RedirectToRoute("HomePage");
+                return RedirectToRoute("Homepage");
             }
 
             if (_workContext.CurrentCustomer.IsGuest())
@@ -311,7 +311,7 @@ namespace Nop.Web.Controllers
         {
             if (!_forumSettings.AllowPrivateMessages)
             {
-                return RedirectToRoute("HomePage");
+                return RedirectToRoute("Homepage");
             }
 
             if (_workContext.CurrentCustomer.IsGuest())

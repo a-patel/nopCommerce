@@ -1,6 +1,4 @@
-﻿@using System.Text.Encodings.Web
-
-@model ApplyVendorModel
+﻿@model ApplyVendorModel
 @{
     Layout = "_ColumnsOne";
 
@@ -59,7 +57,7 @@
                         {
                             <script asp-location="Footer">
                                 $(document).ready(function() {
-                                    $('#apply-vendor').click(function() {
+                                    $('#apply-vendor').on('click', function() {
                                         if ($('#termsofservice').is(':checked')) {
                                             //do some stuff
                                             return true;

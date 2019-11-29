@@ -35,7 +35,7 @@ namespace Nop.Core.Domain.Polls
         /// <summary>
         /// Gets or sets a value indicating whether the entity should be shown on home page
         /// </summary>
-        public bool ShowOnHomePage { get; set; }
+        public bool ShowOnHomepage { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the anonymous votes are allowed
@@ -67,8 +67,8 @@ namespace Nop.Core.Domain.Polls
         /// </summary>
         public virtual ICollection<PollAnswer> PollAnswers
         {
-            get { return _pollAnswers ?? (_pollAnswers = new List<PollAnswer>()); }
-            protected set { _pollAnswers = value; }
+            get => _pollAnswers ?? (_pollAnswers = new List<PollAnswer>());
+            protected set => _pollAnswers = value;
         }
         
         /// <summary>

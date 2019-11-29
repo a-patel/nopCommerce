@@ -1,5 +1,5 @@
 ﻿using Nop.Web.Areas.Admin.Models.Common;
-using Nop.Web.Areas.Admin.Models.Orders;
+using Nop.Web.Areas.Admin.Models.Reports;
 using Nop.Web.Framework.Models;
 
 namespace Nop.Web.Areas.Admin.Models.Home
@@ -13,9 +13,9 @@ namespace Nop.Web.Areas.Admin.Models.Home
 
         public DashboardModel()
         {
-            this.PopularSearchTerms = new PopularSearchTermSearchModel();
-            this.BestsellersByAmount = new BestsellerBriefSearchModel();
-            this.BestsellersByQuantity = new BestsellerBriefSearchModel();
+            PopularSearchTerms = new PopularSearchTermSearchModel();
+            BestsellersByAmount = new BestsellerBriefSearchModel();
+            BestsellersByQuantity = new BestsellerBriefSearchModel();
         }
 
         #endregion

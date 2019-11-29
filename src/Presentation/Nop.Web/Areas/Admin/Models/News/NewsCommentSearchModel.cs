@@ -22,6 +22,8 @@ namespace Nop.Web.Areas.Admin.Models.News
         #endregion
 
         #region Properties
+        
+        public int? NewsItemId { get; set; }
 
         [NopResourceDisplayName("Admin.ContentManagement.News.Comments.List.CreatedOnFrom")]
         [UIHint("DateNullable")]

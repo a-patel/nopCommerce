@@ -1,4 +1,4 @@
-using Autofac;
+﻿using Autofac;
 using Nop.Core.Configuration;
 using Nop.Core.Infrastructure;
 using Nop.Core.Infrastructure.DependencyManagement;
@@ -65,9 +65,11 @@ namespace Nop.Web.Infrastructure
             builder.RegisterType<ProductModelFactory>().As<IProductModelFactory>().InstancePerLifetimeScope();
             builder.RegisterType<ProductAttributeModelFactory>().As<IProductAttributeModelFactory>().InstancePerLifetimeScope();
             builder.RegisterType<ProductReviewModelFactory>().As<IProductReviewModelFactory>().InstancePerLifetimeScope();
+            builder.RegisterType<ReportModelFactory>().As<IReportModelFactory>().InstancePerLifetimeScope();
             builder.RegisterType<QueuedEmailModelFactory>().As<IQueuedEmailModelFactory>().InstancePerLifetimeScope();
             builder.RegisterType<RecurringPaymentModelFactory>().As<IRecurringPaymentModelFactory>().InstancePerLifetimeScope();
             builder.RegisterType<ReturnRequestModelFactory>().As<IReturnRequestModelFactory>().InstancePerLifetimeScope();
+            builder.RegisterType<ReviewTypeModelFactory>().As<IReviewTypeModelFactory>().InstancePerLifetimeScope();
             builder.RegisterType<ScheduleTaskModelFactory>().As<IScheduleTaskModelFactory>().InstancePerLifetimeScope();
             builder.RegisterType<SecurityModelFactory>().As<ISecurityModelFactory>().InstancePerLifetimeScope();
             builder.RegisterType<SettingModelFactory>().As<ISettingModelFactory>().InstancePerLifetimeScope();
@@ -109,9 +111,6 @@ namespace Nop.Web.Infrastructure
         /// <summary>
         /// Gets order of this dependency registrar implementation
         /// </summary>
-        public int Order
-        {
-            get { return 2; }
-        }
+        public int Order => 2;
     }
 }

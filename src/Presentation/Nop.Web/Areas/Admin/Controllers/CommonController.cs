@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.AspNetCore.Hosting;
-using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
 using Nop.Core;
 using Nop.Core.Caching;
@@ -11,6 +9,7 @@ using Nop.Services.Common;
 using Nop.Services.Customers;
 using Nop.Services.Helpers;
 using Nop.Services.Localization;
+using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Services.Security;
 using Nop.Services.Seo;
@@ -34,17 +33,17 @@ namespace Nop.Web.Areas.Admin.Controllers
         private readonly ICommonModelFactory _commonModelFactory;
         private readonly ICustomerService _customerService;
         private readonly IDateTimeHelper _dateTimeHelper;
-        private readonly IHostingEnvironment _hostingEnvironment;
         private readonly ILanguageService _languageService;
         private readonly ILocalizationService _localizationService;
         private readonly IMaintenanceService _maintenanceService;
+        private readonly INopFileProvider _fileProvider;
+        private readonly INotificationService _notificationService;
         private readonly IPermissionService _permissionService;
         private readonly IShoppingCartService _shoppingCartService;
         private readonly IStaticCacheManager _cacheManager;
         private readonly IUrlRecordService _urlRecordService;
         private readonly IWebHelper _webHelper;
         private readonly IWorkContext _workContext;
-        private readonly INopFileProvider _fileProvider;
 
         #endregion
 
@@ -53,32 +52,32 @@ namespace Nop.Web.Areas.Admin.Controllers
         public CommonController(ICommonModelFactory commonModelFactory,
             ICustomerService customerService,
             IDateTimeHelper dateTimeHelper,
-            IHostingEnvironment hostingEnvironment,
             ILanguageService languageService,
             ILocalizationService localizationService,
             IMaintenanceService maintenanceService,
+            INopFileProvider fileProvider,
+            INotificationService notificationService,
             IPermissionService permissionService,
             IShoppingCartService shoppingCartService,
             IStaticCacheManager cacheManager,
             IUrlRecordService urlRecordService,
             IWebHelper webHelper,
-            IWorkContext workContext,
-            INopFileProvider fileProvider)
+            IWorkContext workContext)
         {
-            this._commonModelFactory = commonModelFactory;
-            this._customerService = customerService;
-            this._dateTimeHelper = dateTimeHelper;
-            this._hostingEnvironment = hostingEnvironment;
-            this._languageService = languageService;
-            this._localizationService = localizationService;
-            this._maintenanceService = maintenanceService;
-            this._permissionService = permissionService;
-            this._shoppingCartService = shoppingCartService;
-            this._cacheManager = cacheManager;
-            this._urlRecordService = urlRecordService;
-            this._webHelper = webHelper;
-            this._workContext = workContext;
-            this._fileProvider = fileProvider;
+            _commonModelFactory = commonModelFactory;
+            _customerService = customerService;
+            _dateTimeHelper = dateTimeHelper;
+            _languageService = languageService;
+            _localizationService = localizationService;
+            _maintenanceService = maintenanceService;
+            _fileProvider = fileProvider;
+            _notificationService = notificationService;
+            _permissionService = permissionService;
+            _shoppingCartService = shoppingCartService;
+            _cacheManager = cacheManager;
+            _urlRecordService = urlRecordService;
+            _webHelper = webHelper;
+            _workContext = workContext;
         }
 
         #endregion
@@ -163,7 +162,7 @@ namespace Nop.Web.Areas.Admin.Controllers
                             : (DateTime?)_dateTimeHelper.ConvertToUtcTime(model.DeleteExportedFiles.EndDate.Value, _dateTimeHelper.CurrentTimeZone).AddDays(1);
 
             model.DeleteExportedFiles.NumberOfDeletedFiles = 0;
-           
+
             foreach (var fullPath in _fileProvider.GetFiles(_fileProvider.GetAbsolutePath(EXPORT_IMPORT_PATH)))
             {
                 try
@@ -183,7 +182,7 @@ namespace Nop.Web.Areas.Admin.Controllers
                 }
                 catch (Exception exc)
                 {
-                    ErrorNotification(exc, false);
+                    _notificationService.ErrorNotification(exc);
                 }
             }
 
@@ -194,7 +193,7 @@ namespace Nop.Web.Areas.Admin.Controllers
         public virtual IActionResult BackupFiles(BackupFileSearchModel searchModel)
         {
             if (!_permissionService.Authorize(StandardPermissionProvider.ManageMaintenance))
-                return AccessDeniedKendoGridJson();
+                return AccessDeniedDataTablesJson();
 
             //prepare model
             var model = _commonModelFactory.PrepareBackupFileListModel(searchModel);
@@ -212,11 +211,34 @@ namespace Nop.Web.Areas.Admin.Controllers
             try
             {
                 _maintenanceService.BackupDatabase();
-                SuccessNotification(_localizationService.GetResource("Admin.System.Maintenance.BackupDatabase.BackupCreated"));
+                _notificationService.SuccessNotification(_localizationService.GetResource("Admin.System.Maintenance.BackupDatabase.BackupCreated"));
             }
             catch (Exception exc)
             {
-                ErrorNotification(exc);
+                _notificationService.ErrorNotification(exc);
+            }
+
+            //prepare model
+            model = _commonModelFactory.PrepareMaintenanceModel(new MaintenanceModel());
+
+            return View(model);
+        }
+
+        [HttpPost, ActionName("Maintenance")]
+        [FormValueRequired("re-index")]
+        public virtual IActionResult ReIndexTables(MaintenanceModel model)
+        {
+            if (!_permissionService.Authorize(StandardPermissionProvider.ManageMaintenance))
+                return AccessDeniedView();
+
+            try
+            {
+                _maintenanceService.ReIndexTables();
+                _notificationService.SuccessNotification(_localizationService.GetResource("Admin.System.Maintenance.ReIndexTables.Complete"));
+            }
+            catch (Exception exc)
+            {
+                _notificationService.ErrorNotification(exc);
             }
 
             return View(model);
@@ -241,21 +263,24 @@ namespace Nop.Web.Areas.Admin.Controllers
                     case "delete-backup":
                         {
                             _fileProvider.DeleteFile(backupPath);
-                            SuccessNotification(string.Format(_localizationService.GetResource("Admin.System.Maintenance.BackupDatabase.BackupDeleted"), fileName));
+                            _notificationService.SuccessNotification(string.Format(_localizationService.GetResource("Admin.System.Maintenance.BackupDatabase.BackupDeleted"), fileName));
                         }
                         break;
                     case "restore-backup":
                         {
                             _maintenanceService.RestoreDatabase(backupPath);
-                            SuccessNotification(_localizationService.GetResource("Admin.System.Maintenance.BackupDatabase.DatabaseRestored"));
+                            _notificationService.SuccessNotification(_localizationService.GetResource("Admin.System.Maintenance.BackupDatabase.DatabaseRestored"));
                         }
                         break;
                 }
             }
             catch (Exception exc)
             {
-                ErrorNotification(exc);
+                _notificationService.ErrorNotification(exc);
             }
+
+            //prepare model
+            model = _commonModelFactory.PrepareMaintenanceModel(model);
 
             return View(model);
         }
@@ -331,7 +356,7 @@ namespace Nop.Web.Areas.Admin.Controllers
         public virtual IActionResult SeNames(UrlRecordSearchModel searchModel)
         {
             if (!_permissionService.Authorize(StandardPermissionProvider.ManageMaintenance))
-                return AccessDeniedKendoGridJson();
+                return AccessDeniedDataTablesJson();
 
             //prepare model
             var model = _commonModelFactory.PrepareUrlRecordListModel(searchModel);
@@ -355,7 +380,7 @@ namespace Nop.Web.Areas.Admin.Controllers
         public virtual IActionResult PopularSearchTermsReport(PopularSearchTermSearchModel searchModel)
         {
             if (!_permissionService.Authorize(StandardPermissionProvider.ManageProducts))
-                return AccessDeniedKendoGridJson();
+                return AccessDeniedDataTablesJson();
 
             //prepare model
             var model = _commonModelFactory.PreparePopularSearchTermListModel(searchModel);
@@ -370,7 +395,7 @@ namespace Nop.Web.Areas.Admin.Controllers
                 return Json(new { Result = string.Empty });
 
             int.TryParse(entityId, out var parsedEntityId);
-            var validatedSeName = SeoExtensions.ValidateSeName(parsedEntityId, entityName, seName, null, false);
+            var validatedSeName = _urlRecordService.ValidateSeName(parsedEntityId, entityName, seName, null, false);
 
             if (seName.Equals(validatedSeName, StringComparison.InvariantCultureIgnoreCase))
                 return Json(new { Result = string.Empty });

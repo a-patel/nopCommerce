@@ -1,5 +1,7 @@
-﻿using Nop.Core.Plugins;
+﻿using System.Collections.Generic;
+using Nop.Services.Plugins;
 using Nop.Web.Areas.Admin.Models.Plugins;
+using Nop.Web.Areas.Admin.Models.Plugins.Marketplace;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -44,5 +46,18 @@ namespace Nop.Web.Areas.Admin.Factories
         /// <param name="searchModel">Search model of plugins of the official feed</param>
         /// <returns>List model of plugins of the official feed</returns>
         OfficialFeedPluginListModel PrepareOfficialFeedPluginListModel(OfficialFeedPluginSearchModel searchModel);
+
+        /// <summary>
+        /// Prepare plugins configuration model
+        /// </summary>
+        /// <param name="configModel">Plugins configuration model</param>
+        /// <returns>Plugins configuration model</returns>
+        PluginsConfigurationModel PreparePluginsConfigurationModel(PluginsConfigurationModel configModel);
+
+        /// <summary>
+        /// Prepare plugin models for admin navigation
+        /// </summary>
+        /// <returns>List of models</returns>
+        IList<AdminNavigationPluginModel> PrepareAdminNavigationPluginModels();
     }
 }

@@ -1,5 +1,4 @@
 ﻿@model InstallModel
-@using System.Text.Encodings.Web
 @using Nop.Core.Data
 @using Nop.Web.Models.Install
 @using Nop.Web.Infrastructure.Installation
@@ -15,21 +14,24 @@
 <head>
     <title>@ILS.GetResource("Title")</title>
     <meta http-equiv="Content-type" content="text/html;charset=UTF-8" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700,300italic,400italic,600italic">
+    <link rel="shortcut icon" href="/icons/icons_0/favicon.ico">
     @if (ILS.GetCurrentLanguage().IsRightToLeft)
     {
         <link href="@Url.Content("~/lib/bootstrap/css/bootstrap.rtl.css")" type="text/css" rel="stylesheet" />
-        <link href="@Url.Content("~/lib/adminLTE/AdminLTE-2.3.0.rtl.css")" type="text/css" rel="stylesheet" />
+        <link href="@Url.Content("~/lib/adminLTE/css/AdminLTE.rtl.css")" type="text/css" rel="stylesheet" />
         <link href="@Url.Content("~/css/install/styles.rtl.css")" type="text/css" rel="stylesheet" />
     }
     else
     {
         <link href="@Url.Content("~/lib/bootstrap/css/bootstrap.min.css")" type="text/css" rel="stylesheet" />
-        <link href="@Url.Content("~/lib/adminLTE/AdminLTE-2.3.0.min.css")" type="text/css" rel="stylesheet" />
+        <link href="@Url.Content("~/lib/adminLTE/css/AdminLTE.min.css")" type="text/css" rel="stylesheet" />
         <link href="@Url.Content("~/css/install/styles.css")" type="text/css" rel="stylesheet" />
     }
-    <script src="@Url.Content("~/lib/jquery-1.10.2.min.js")"></script>
-    <script src="@Url.Content("~/lib/jquery.validate.min.js")"></script>
-    <script src="@Url.Content("~/lib/jquery.validate.unobtrusive.min.js")"></script>
+    <script src="@Url.Content("~/lib/jquery/jquery-3.4.1.min.js")"></script>
+    <script src="@Url.Content("~/lib/jquery-migrate/jquery-migrate-3.1.0.js")"></script>
+    <script src="@Url.Content("~/lib/jquery-validate/jquery.validate-v1.19.1/jquery.validate.min.js")"></script>
+    <script src="@Url.Content("~/lib/jquery-validate/jquery.validate.unobtrusive-v3.2.11/jquery.validate.unobtrusive.min.js")"></script>
     <script src="@Url.Content("~/js/public.common.js")"></script>
 </head>
 <body class="skin-blue">
@@ -48,7 +50,7 @@
                 </div>
             </div>
         </div>
-        <form asp-action="Index" asp-controller="Install" id="installation-form" method="post">
+        <form asp-action="Index" asp-controller="Install" id="installation-form" method="post" autocomplete="off">
             <div class="content">
                 <div asp-validation-summary="All" class="message-error"></div>
 
@@ -57,81 +59,81 @@
                 <p>@ILS.GetResource("Documentation1") <a href="http://docs.nopcommerce.com/dashboard.action?utm_source=installation-page&utm_medium=footer&utm_campaign=installation-page" target="_blank">@ILS.GetResource("Documentation2")</a>.</p>
 
                 <script>
-    function showThrobber(message) {
-        $('.throbber-header').html(message);
-        window.setTimeout(function () {
-            $(".throbber").show();
-        }, 1000);
-    }
+                    function showThrobber(message) {
+                        $('.throbber-header').html(message);
+                        window.setTimeout(function () {
+                            $(".throbber").show();
+                        }, 1000);
+                    }
 
-    $(document).ready(function () {
-        $('#installation-form').submit(function () {
-            if ($('#installation-form').valid()) {
-                $("html, body").animate({ scrollTop: 0 }, 400);
-                showThrobber('@Html.Raw(JavaScriptEncoder.Default.Encode(ILS.GetResource("Installing")))');
-                $('input[type=submit]', this).attr('disabled', 'disabled');
-            }
-        });
-    });
+                    $(document).ready(function () {
+                        $('#installation-form').submit(function () {
+                            if ($('#installation-form').valid()) {
+                                $("html, body").animate({ scrollTop: 0 }, 400);
+                                showThrobber('@Html.Raw(JavaScriptEncoder.Default.Encode(ILS.GetResource("Installing")))');
+                                $('input[type=submit]', this).attr('disabled', 'disabled');
+                            }
+                        });
+                    });
 
-    $(document).ready(function () {
-        $('#restart-form').submit(function () {
-            $("html, body").animate({ scrollTop: 0 }, 400);
-            showThrobber('@Html.Raw(JavaScriptEncoder.Default.Encode("Restarting..."))');
-            $('input[type=submit]', this).attr('disabled', 'disabled');
-        });
-    });
+                    $(document).ready(function () {
+                        $('#restart-form').submit(function () {
+                            $("html, body").animate({ scrollTop: 0 }, 400);
+                            showThrobber('@Html.Raw(JavaScriptEncoder.Default.Encode("Restarting..."))');
+                            $('input[type=submit]', this).attr('disabled', 'disabled');
+                        });
+                    });
 
-    $(document).ready(function () {
-        $('input:radio[name=DataProvider]').click(toggleProvider);
-        $('input:radio[name=SqlConnectionInfo]').click(toggleSqlConnectionInfo);
-        $('input:radio[name=SqlAuthenticationType]').click(toggleSqlAuthenticationType);
-        $("input:checkbox[name=UseCustomCollation]").click(toggleCollation);
+                    $(document).ready(function () {
+                        $('input:radio[name=DataProvider]').click(toggleProvider);
+                        $('input:radio[name=SqlConnectionInfo]').click(toggleSqlConnectionInfo);
+                        $('input:radio[name=SqlAuthenticationType]').click(toggleSqlAuthenticationType);
+                        $("input:checkbox[name=UseCustomCollation]").click(toggleCollation);
 
-        toggleProvider();
-        toggleSqlConnectionInfo();
-        toggleSqlAuthenticationType();
-        toggleCollation();
-    });
-
-
-    function toggleProvider() {
-        var selectedProvider = $("input[name=DataProvider]:checked").attr('id');
-        if (selectedProvider == 'provider_sqlce') {
-            $('#sqlConnectionInfo').hide();
-        } else if (selectedProvider == 'provider_sqlserver') {
-            $('#sqlConnectionInfo').show();
-        }
-    }
-
-    function toggleSqlConnectionInfo() {
-        var selectedProvider = $("input[name=SqlConnectionInfo]:checked").attr('id');
-        if (selectedProvider == 'sqlconnectioninfo_values') {
-            $('#sqlDatabaseInfo').show();
-            $('#sqlDatabaseConnectionString').hide();
-        } else if (selectedProvider == 'sqlconnectioninfo_raw') {
-            $('#sqlDatabaseInfo').hide();
-            $('#sqlDatabaseConnectionString').show();
-        }
-    }
-
-    function toggleSqlAuthenticationType() {
-        var selectedProvider = $("input[name=SqlAuthenticationType]:checked").attr('id');
-        if (selectedProvider == 'sqlauthenticationtype_sql') {
-            $('#pnlSqlServerCredentials').show();
-        } else if (selectedProvider == 'sqlauthenticationtype_windows') {
-            $('#pnlSqlServerCredentials').hide();
-        }
-    }
+                        toggleProvider();
+                        toggleSqlConnectionInfo();
+                        toggleSqlAuthenticationType();
+                        toggleCollation();
+                    });
 
 
-    function toggleCollation() {
-        if ($('#UseCustomCollation').is(':checked')) {
-            $('#Collation').show();
-        } else {
-            $('#Collation').hide();
-        }
-    }
+                    function toggleProvider() {
+                        var selectedProvider = $("input[name=DataProvider]:checked").attr('id');
+                        if (selectedProvider == 'provider_sqlce') {
+                            $('#sqlConnectionInfo').hide();
+                        } else if (selectedProvider == 'provider_sqlserver') {
+                            $('#sqlConnectionInfo').show();
+                        }
+                    }
+
+                    function toggleSqlConnectionInfo() {
+                        var selectedProvider = $("input[name=SqlConnectionInfo]:checked").attr('id');
+                        if (selectedProvider == 'sqlconnectioninfo_values') {
+                            $('#sqlDatabaseInfo').show();
+                            $('#sqlDatabaseConnectionString').hide();
+                        } else if (selectedProvider == 'sqlconnectioninfo_raw') {
+                            $('#sqlDatabaseInfo').hide();
+                            $('#sqlDatabaseConnectionString').show();
+                        }
+                    }
+
+                    function toggleSqlAuthenticationType() {
+                        var selectedProvider = $("input[name=SqlAuthenticationType]:checked").attr('id');
+                        if (selectedProvider == 'sqlauthenticationtype_sql') {
+                            $('#pnlSqlServerCredentials').show();
+                        } else if (selectedProvider == 'sqlauthenticationtype_windows') {
+                            $('#pnlSqlServerCredentials').hide();
+                        }
+                    }
+
+
+                    function toggleCollation() {
+                        if ($('#UseCustomCollation').is(':checked')) {
+                            $('#Collation').show();
+                        } else {
+                            $('#Collation').hide();
+                        }
+                    }
                 </script>
 
                 <div class="form-horizontal">

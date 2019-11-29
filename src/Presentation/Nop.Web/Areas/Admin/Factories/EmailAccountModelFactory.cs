@@ -1,10 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Nop.Core.Domain.Messages;
+using Nop.Services.Localization;
 using Nop.Services.Messages;
-using Nop.Web.Areas.Admin.Extensions;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
 using Nop.Web.Areas.Admin.Models.Messages;
-using Nop.Web.Framework.Extensions;
+using Nop.Web.Framework.Models.DataTables;
+using Nop.Web.Framework.Models.Extensions;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -17,20 +22,23 @@ namespace Nop.Web.Areas.Admin.Factories
 
         private readonly EmailAccountSettings _emailAccountSettings;
         private readonly IEmailAccountService _emailAccountService;
+        private readonly ILocalizationService _localizationService;
 
         #endregion
 
         #region Ctor
 
         public EmailAccountModelFactory(EmailAccountSettings emailAccountSettings,
-            IEmailAccountService emailAccountService)
+            IEmailAccountService emailAccountService,
+            ILocalizationService localizationService)
         {
-            this._emailAccountSettings = emailAccountSettings;
-            this._emailAccountService = emailAccountService;
+            _emailAccountSettings = emailAccountSettings;
+            _emailAccountService = emailAccountService;
+            _localizationService = localizationService;
         }
 
         #endregion
-
+        
         #region Methods
 
         /// <summary>
@@ -60,23 +68,22 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get email accounts
-            var emailAccounts = _emailAccountService.GetAllEmailAccounts();
+            var emailAccounts = _emailAccountService.GetAllEmailAccounts().ToPagedList(searchModel);
 
             //prepare grid model
-            var model = new EmailAccountListModel
+            var model = new EmailAccountListModel().PrepareToGrid(searchModel, emailAccounts, () =>
             {
-                Data = emailAccounts.PaginationByRequestModel(searchModel).Select(emailAccount =>
+                return emailAccounts.Select(emailAccount =>
                 {
                     //fill in model values from the entity
-                    var emailAccountModel = emailAccount.ToModel();
+                    var emailAccountModel = emailAccount.ToModel<EmailAccountModel>();
 
                     //fill in additional values (not existing in the entity)
                     emailAccountModel.IsDefaultEmailAccount = emailAccount.Id == _emailAccountSettings.DefaultEmailAccountId;
 
                     return emailAccountModel;
-                }),
-                Total = emailAccounts.Count
-            };
+                });
+            });
 
             return model;
         }
@@ -93,7 +100,7 @@ namespace Nop.Web.Areas.Admin.Factories
         {
             //fill in model values from the entity
             if (emailAccount != null)
-                model = model ?? emailAccount.ToModel();
+                model = model ?? emailAccount.ToModel<EmailAccountModel>();
 
             //set default values for the new model
             if (emailAccount == null)

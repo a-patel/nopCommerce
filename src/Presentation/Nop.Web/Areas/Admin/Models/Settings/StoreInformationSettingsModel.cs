@@ -8,18 +8,20 @@ namespace Nop.Web.Areas.Admin.Models.Settings
     /// <summary>
     /// Represents a store information settings model
     /// </summary>
-    public partial class StoreInformationSettingsModel : BaseNopModel
+    public partial class StoreInformationSettingsModel : BaseNopModel, ISettingsModel
     {
         #region Ctor
 
         public StoreInformationSettingsModel()
         {
-            this.AvailableStoreThemes = new List<ThemeModel>();
+            AvailableStoreThemes = new List<ThemeModel>();
         }
 
         #endregion
 
         #region Properties
+
+        public int ActiveStoreScopeConfiguration { get; set; }
 
         [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.StoreClosed")]
         public bool StoreClosed { get; set; }
@@ -55,10 +57,6 @@ namespace Nop.Web.Areas.Admin.Models.Settings
         public string YoutubeLink { get; set; }
         public bool YoutubeLink_OverrideForStore { get; set; }
 
-        [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.GooglePlusLink")]
-        public string GooglePlusLink { get; set; }
-        public bool GooglePlusLink_OverrideForStore { get; set; }
-
         [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.SubjectFieldOnContactUsForm")]
         public bool SubjectFieldOnContactUsForm { get; set; }
         public bool SubjectFieldOnContactUsForm_OverrideForStore { get; set; }
@@ -70,30 +68,6 @@ namespace Nop.Web.Areas.Admin.Models.Settings
         [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.PopupForTermsOfServiceLinks")]
         public bool PopupForTermsOfServiceLinks { get; set; }
         public bool PopupForTermsOfServiceLinks_OverrideForStore { get; set; }
-
-        [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.SitemapEnabled")]
-        public bool SitemapEnabled { get; set; }
-        public bool SitemapEnabled_OverrideForStore { get; set; }
-
-        [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.SitemapPageSize")]
-        public int SitemapPageSize { get; set; }
-        public bool SitemapPageSize_OverrideForStore { get; set; }
-
-        [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.SitemapIncludeCategories")]
-        public bool SitemapIncludeCategories { get; set; }
-        public bool SitemapIncludeCategories_OverrideForStore { get; set; }
-
-        [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.SitemapIncludeManufacturers")]
-        public bool SitemapIncludeManufacturers { get; set; }
-        public bool SitemapIncludeManufacturers_OverrideForStore { get; set; }
-
-        [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.SitemapIncludeProducts")]
-        public bool SitemapIncludeProducts { get; set; }
-        public bool SitemapIncludeProducts_OverrideForStore { get; set; }
-
-        [NopResourceDisplayName("Admin.Configuration.Settings.GeneralCommon.SitemapIncludeProductTags")]
-        public bool SitemapIncludeProductTags { get; set; }
-        public bool SitemapIncludeProductTags_OverrideForStore { get; set; }
 
         #endregion
 

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nop.Core.Domain.Configuration;
 
@@ -21,10 +21,9 @@ namespace Nop.Data.Mapping.Configuration
             builder.HasKey(setting => setting.Id);
 
             builder.Property(setting => setting.Name).HasMaxLength(200).IsRequired();
-            builder.Property(setting => setting.Value).HasMaxLength(2000).IsRequired();
+            builder.Property(setting => setting.Value).IsRequired();
 
-            //add custom configuration
-            this.PostConfigure(builder);
+            base.Configure(builder);
         }
 
         #endregion

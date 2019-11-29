@@ -2,8 +2,9 @@
 using System.Linq;
 using Nop.Services.Helpers;
 using Nop.Services.Tasks;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
 using Nop.Web.Areas.Admin.Models.Tasks;
-using Nop.Web.Framework.Extensions;
+using Nop.Web.Framework.Models.Extensions;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -24,8 +25,8 @@ namespace Nop.Web.Areas.Admin.Factories
         public ScheduleTaskModelFactory(IDateTimeHelper dateTimeHelper,
             IScheduleTaskService scheduleTaskService)
         {
-            this._dateTimeHelper = dateTimeHelper;
-            this._scheduleTaskService = scheduleTaskService;
+            _dateTimeHelper = dateTimeHelper;
+            _scheduleTaskService = scheduleTaskService;
         }
 
         #endregion
@@ -59,22 +60,15 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get schedule tasks
-            var scheduleTasks = _scheduleTaskService.GetAllTasks(true);
+            var scheduleTasks = _scheduleTaskService.GetAllTasks(true).ToPagedList(searchModel);
 
             //prepare list model
-            var model = new ScheduleTaskListModel
+            var model = new ScheduleTaskListModel().PrepareToGrid(searchModel, scheduleTasks, () =>
             {
-                Data = scheduleTasks.PaginationByRequestModel(searchModel).Select(scheduleTask =>
+                return scheduleTasks.Select(scheduleTask =>
                 {
                     //fill in model values from the entity
-                    var scheduleTaskModel = new ScheduleTaskModel
-                    {
-                        Id = scheduleTask.Id,
-                        Name = scheduleTask.Name,
-                        Seconds = scheduleTask.Seconds,
-                        Enabled = scheduleTask.Enabled,
-                        StopOnError = scheduleTask.StopOnError
-                    };
+                    var scheduleTaskModel = scheduleTask.ToModel<ScheduleTaskModel>();
 
                     //convert dates to the user time
                     if (scheduleTask.LastStartUtc.HasValue)
@@ -96,10 +90,8 @@ namespace Nop.Web.Areas.Admin.Factories
                     }
 
                     return scheduleTaskModel;
-                }),
-                Total = scheduleTasks.Count
-            };
-
+                });
+            });
             return model;
         }
 

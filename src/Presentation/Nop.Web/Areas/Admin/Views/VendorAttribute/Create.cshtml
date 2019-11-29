@@ -2,7 +2,7 @@
 
 @{
     //page title
-    ViewBag.Title = T("Admin.Vendors.VendorAttributes.AddNew").Text;
+    ViewBag.PageTitle = T("Admin.Vendors.VendorAttributes.AddNew").Text;
     //active menu item (system name)
     Html.SetActiveMenuItemSystemName("Vendor and user settings");
 }
@@ -25,7 +25,7 @@
                 <i class="fa fa-floppy-o"></i>
                 @T("Admin.Common.SaveContinue")
             </button>
-            @await Component.InvokeAsync("AdminWidget", new { widgetZone = "admin_vendor_attribute_details_buttons" })
+            @await Component.InvokeAsync("AdminWidget", new { widgetZone = AdminWidgetZones.AdminVendorAttributeDetailsButtons })
         </div>
     </div>
     @await Html.PartialAsync("_CreateOrUpdate", Model)

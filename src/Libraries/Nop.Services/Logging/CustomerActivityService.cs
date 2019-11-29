@@ -4,7 +4,6 @@ using System.Linq;
 using Nop.Core;
 using Nop.Core.Caching;
 using Nop.Core.Data;
-using Nop.Core.Domain.Common;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Logging;
 using Nop.Data;
@@ -17,61 +16,32 @@ namespace Nop.Services.Logging
     /// </summary>
     public class CustomerActivityService : ICustomerActivityService
     {
-        #region Constants
-
-        /// <summary>
-        /// Key for caching
-        /// </summary>
-        private const string ACTIVITYTYPE_ALL_KEY = "Nop.activitytype.all";
-        /// <summary>
-        /// Key pattern to clear cache
-        /// </summary>
-        private const string ACTIVITYTYPE_PATTERN_KEY = "Nop.activitytype.";
-
-        #endregion
-
         #region Fields
 
-        private readonly IStaticCacheManager _cacheManager;
+        private readonly IDbContext _dbContext;
         private readonly IRepository<ActivityLog> _activityLogRepository;
         private readonly IRepository<ActivityLogType> _activityLogTypeRepository;
-        private readonly IWorkContext _workContext;
-        private readonly IDbContext _dbContext;
-        private readonly IDataProvider _dataProvider;
-        private readonly CommonSettings _commonSettings;
+        private readonly IStaticCacheManager _cacheManager;
         private readonly IWebHelper _webHelper;
+        private readonly IWorkContext _workContext;
 
         #endregion
-        
+
         #region Ctor
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="cacheManager">Static cache manager</param>
-        /// <param name="activityLogRepository">Activity log repository</param>
-        /// <param name="activityLogTypeRepository">Activity log type repository</param>
-        /// <param name="workContext">Work context</param>
-        /// <param name="dbContext">DB context</param>>
-        /// <param name="dataProvider">WeData provider</param>
-        /// <param name="commonSettings">Common settings</param>
-        /// <param name="webHelper">Web helper</param>
-        public CustomerActivityService(IStaticCacheManager cacheManager,
+        public CustomerActivityService(IDbContext dbContext,
             IRepository<ActivityLog> activityLogRepository,
             IRepository<ActivityLogType> activityLogTypeRepository,
-            IWorkContext workContext,
-            IDbContext dbContext, IDataProvider dataProvider,
-            CommonSettings commonSettings,
-            IWebHelper webHelper)
+            IStaticCacheManager cacheManager,
+            IWebHelper webHelper,
+            IWorkContext workContext)
         {
-            this._cacheManager = cacheManager;
-            this._activityLogRepository = activityLogRepository;
-            this._activityLogTypeRepository = activityLogTypeRepository;
-            this._workContext = workContext;
-            this._dbContext = dbContext;
-            this._dataProvider = dataProvider;
-            this._commonSettings = commonSettings;
-            this._webHelper = webHelper;
+            _dbContext = dbContext;
+            _activityLogRepository = activityLogRepository;
+            _activityLogTypeRepository = activityLogTypeRepository;
+            _cacheManager = cacheManager;
+            _webHelper = webHelper;
+            _workContext = workContext;
         }
 
         #endregion
@@ -88,14 +58,17 @@ namespace Nop.Services.Logging
             /// Identifier
             /// </summary>
             public int Id { get; set; }
+
             /// <summary>
             /// System keyword
             /// </summary>
             public string SystemKeyword { get; set; }
+
             /// <summary>
             /// Name
             /// </summary>
             public string Name { get; set; }
+
             /// <summary>
             /// Enabled
             /// </summary>
@@ -113,8 +86,7 @@ namespace Nop.Services.Logging
         protected virtual IList<ActivityLogTypeForCaching> GetAllActivityTypesCached()
         {
             //cache
-            var key = string.Format(ACTIVITYTYPE_ALL_KEY);
-            return _cacheManager.Get(key, () =>
+            return _cacheManager.Get(NopLoggingDefaults.ActivityTypeAllCacheKey, () =>
             {
                 var result = new List<ActivityLogTypeForCaching>();
                 var activityLogTypes = GetAllActivityTypes();
@@ -129,6 +101,7 @@ namespace Nop.Services.Logging
                     };
                     result.Add(altForCaching);
                 }
+
                 return result;
             });
         }
@@ -147,7 +120,7 @@ namespace Nop.Services.Logging
                 throw new ArgumentNullException(nameof(activityLogType));
 
             _activityLogTypeRepository.Insert(activityLogType);
-            _cacheManager.RemoveByPattern(ACTIVITYTYPE_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopLoggingDefaults.ActivityTypePrefixCacheKey);
         }
 
         /// <summary>
@@ -160,9 +133,9 @@ namespace Nop.Services.Logging
                 throw new ArgumentNullException(nameof(activityLogType));
 
             _activityLogTypeRepository.Update(activityLogType);
-            _cacheManager.RemoveByPattern(ACTIVITYTYPE_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopLoggingDefaults.ActivityTypePrefixCacheKey);
         }
-                
+
         /// <summary>
         /// Deletes an activity log type item
         /// </summary>
@@ -173,7 +146,7 @@ namespace Nop.Services.Logging
                 throw new ArgumentNullException(nameof(activityLogType));
 
             _activityLogTypeRepository.Delete(activityLogType);
-            _cacheManager.RemoveByPattern(ACTIVITYTYPE_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(NopLoggingDefaults.ActivityTypePrefixCacheKey);
         }
 
         /// <summary>
@@ -183,8 +156,8 @@ namespace Nop.Services.Logging
         public virtual IList<ActivityLogType> GetAllActivityTypes()
         {
             var query = from alt in _activityLogTypeRepository.Table
-                orderby alt.Name
-                select alt;
+                        orderby alt.Name
+                        select alt;
             var activityLogTypes = query.ToList();
             return activityLogTypes;
         }
@@ -231,13 +204,13 @@ namespace Nop.Services.Logging
             var activityLogType = GetAllActivityTypesCached().FirstOrDefault(type => type.SystemKeyword.Equals(systemKeyword));
             if (!activityLogType?.Enabled ?? true)
                 return null;
-            
+
             //insert log item
             var logItem = new ActivityLog
             {
                 ActivityLogTypeId = activityLogType.Id,
                 EntityId = entity?.Id,
-                EntityName = entity?.GetType().BaseType.Name,
+                EntityName = entity?.GetUnproxiedEntityType().Name,
                 CustomerId = customer.Id,
                 Comment = CommonHelper.EnsureMaximumLength(comment ?? string.Empty, 4000),
                 CreatedOnUtc = DateTime.UtcNow,
@@ -273,14 +246,14 @@ namespace Nop.Services.Logging
         /// <param name="pageIndex">Page index</param>
         /// <param name="pageSize">Page size</param>
         /// <returns>Activity log items</returns>
-        public virtual IPagedList<ActivityLog> GetAllActivities(DateTime? createdOnFrom = null, DateTime? createdOnTo = null, 
+        public virtual IPagedList<ActivityLog> GetAllActivities(DateTime? createdOnFrom = null, DateTime? createdOnTo = null,
             int? customerId = null, int? activityLogTypeId = null, string ipAddress = null, string entityName = null, int? entityId = null,
             int pageIndex = 0, int pageSize = int.MaxValue)
         {
             var query = _activityLogRepository.Table;
 
             //filter by IP
-            if(!string.IsNullOrEmpty(ipAddress))
+            if (!string.IsNullOrEmpty(ipAddress))
                 query = query.Where(logItem => logItem.IpAddress.Contains(ipAddress));
 
             //filter by creation date
@@ -307,7 +280,7 @@ namespace Nop.Services.Logging
 
             return new PagedList<ActivityLog>(query, pageIndex, pageSize);
         }
-        
+
         /// <summary>
         /// Gets an activity log item
         /// </summary>

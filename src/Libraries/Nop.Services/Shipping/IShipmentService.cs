@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Nop.Core;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Shipping;
+using Nop.Services.Shipping.Tracking;
 
 namespace Nop.Services.Shipping
 {
@@ -28,6 +29,7 @@ namespace Nop.Services.Shipping
         /// <param name="shippingCity">Shipping city; null to load all records</param>
         /// <param name="trackingNumber">Search by tracking number</param>
         /// <param name="loadNotShipped">A value indicating whether we should load only not shipped shipments</param>
+        /// <param name="loadNotDelivered">A value indicating whether we should load only not delivered shipments</param>
         /// <param name="createdFromUtc">Created date from (UTC); null to load all records</param>
         /// <param name="createdToUtc">Created date to (UTC); null to load all records</param>
         /// <param name="pageIndex">Page index</param>
@@ -40,9 +42,10 @@ namespace Nop.Services.Shipping
             string shippingCity = null,
             string trackingNumber = null,
             bool loadNotShipped = false,
+            bool loadNotDelivered = false,
             DateTime? createdFromUtc = null, DateTime? createdToUtc = null,
             int pageIndex = 0, int pageSize = int.MaxValue);
-        
+
         /// <summary>
         /// Get shipment by identifiers
         /// </summary>
@@ -104,5 +107,12 @@ namespace Nop.Services.Shipping
         /// <returns>Quantity</returns>
         int GetQuantityInShipments(Product product, int warehouseId,
             bool ignoreShipped, bool ignoreDelivered);
+
+        /// <summary>
+        /// Get the tracker of the shipment
+        /// </summary>
+        /// <param name="shipment">Shipment</param>
+        /// <returns>Shipment tracker</returns>
+        IShipmentTracker GetShipmentTracker(Shipment shipment);
     }
 }

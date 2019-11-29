@@ -7,14 +7,14 @@ namespace Nop.Web.Areas.Admin.Models.Settings
     /// <summary>
     /// Represents an order settings model
     /// </summary>
-    public partial class OrderSettingsModel : BaseNopModel
+    public partial class OrderSettingsModel : BaseNopModel, ISettingsModel
     {
         #region Ctor
 
         public OrderSettingsModel()
         {
-            this.ReturnRequestReasonSearchModel = new ReturnRequestReasonSearchModel();
-            this.ReturnRequestActionSearchModel = new ReturnRequestActionSearchModel();
+            ReturnRequestReasonSearchModel = new ReturnRequestReasonSearchModel();
+            ReturnRequestActionSearchModel = new ReturnRequestActionSearchModel();
         }
 
         #endregion

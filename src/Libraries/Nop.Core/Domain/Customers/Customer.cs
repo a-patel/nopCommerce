@@ -15,14 +15,12 @@ namespace Nop.Core.Domain.Customers
         private ICollection<CustomerCustomerRoleMapping> _customerCustomerRoleMappings;
         private ICollection<ShoppingCartItem> _shoppingCartItems;
         private ICollection<ReturnRequest> _returnRequests;
-        private ICollection<CustomerAddressMapping> _customerAddressMappings;
-        
-        /// <summary>
-        /// Ctor
-        /// </summary>
+        protected ICollection<CustomerAddressMapping> _customerAddressMappings;
+        private IList<CustomerRole> _customerRoles;
+
         public Customer()
         {
-            this.CustomerGuid = Guid.NewGuid();
+            CustomerGuid = Guid.NewGuid();
         }
 
         /// <summary>
@@ -67,7 +65,7 @@ namespace Nop.Core.Domain.Customers
 
         /// <summary>
         /// Gets or sets a value indicating whether this customer has some products in the shopping cart
-        /// <remarks>The same as if we run this.ShoppingCartItems.Count > 0
+        /// <remarks>The same as if we run ShoppingCartItems.Count > 0
         /// We use this property for performance optimization:
         /// if this property is set to false, then we do not need to load "ShoppingCartItems" navigation property for each page load
         /// It's used only in a couple of places in the presenation layer
@@ -152,22 +150,25 @@ namespace Nop.Core.Domain.Customers
         /// </summary>
         public virtual ICollection<ExternalAuthenticationRecord> ExternalAuthenticationRecords
         {
-            get { return _externalAuthenticationRecords ?? (_externalAuthenticationRecords = new List<ExternalAuthenticationRecord>()); }
-            protected set { _externalAuthenticationRecords = value; }
+            get => _externalAuthenticationRecords ?? (_externalAuthenticationRecords = new List<ExternalAuthenticationRecord>());
+            protected set => _externalAuthenticationRecords = value;
         }
 
         /// <summary>
-        /// Gets or sets the customer roles
+        /// Gets or sets customer roles
         /// </summary>
-        public IList<CustomerRole> CustomerRoles => CustomerCustomerRoleMappings.Select(mapping => mapping.CustomerRole).ToList();
+        public virtual IList<CustomerRole> CustomerRoles
+        {
+            get => _customerRoles ?? (_customerRoles = CustomerCustomerRoleMappings.Select(mapping => mapping.CustomerRole).ToList());
+        }
 
         /// <summary>
         /// Gets or sets customer-customer role mappings
         /// </summary>
         public virtual ICollection<CustomerCustomerRoleMapping> CustomerCustomerRoleMappings
         {
-            get { return _customerCustomerRoleMappings ?? (_customerCustomerRoleMappings = new List<CustomerCustomerRoleMapping>()); }
-            protected set { _customerCustomerRoleMappings = value; }
+            get => _customerCustomerRoleMappings ?? (_customerCustomerRoleMappings = new List<CustomerCustomerRoleMapping>());
+            protected set => _customerCustomerRoleMappings = value;
         }
 
         /// <summary>
@@ -175,8 +176,8 @@ namespace Nop.Core.Domain.Customers
         /// </summary>
         public virtual ICollection<ShoppingCartItem> ShoppingCartItems
         {
-            get { return _shoppingCartItems ?? (_shoppingCartItems = new List<ShoppingCartItem>()); }
-            protected set { _shoppingCartItems = value; }
+            get => _shoppingCartItems ?? (_shoppingCartItems = new List<ShoppingCartItem>());
+            protected set => _shoppingCartItems = value;
         }
 
         /// <summary>
@@ -184,8 +185,8 @@ namespace Nop.Core.Domain.Customers
         /// </summary>
         public virtual ICollection<ReturnRequest> ReturnRequests
         {
-            get { return _returnRequests ?? (_returnRequests = new List<ReturnRequest>()); }
-            protected set { _returnRequests = value; }
+            get => _returnRequests ?? (_returnRequests = new List<ReturnRequest>());
+            protected set => _returnRequests = value;
         }
 
         /// <summary>
@@ -208,8 +209,32 @@ namespace Nop.Core.Domain.Customers
         /// </summary>
         public virtual ICollection<CustomerAddressMapping> CustomerAddressMappings
         {
-            get { return _customerAddressMappings ?? (_customerAddressMappings = new List<CustomerAddressMapping>()); }
-            protected set { _customerAddressMappings = value; }
+            get => _customerAddressMappings ?? (_customerAddressMappings = new List<CustomerAddressMapping>());
+            protected set => _customerAddressMappings = value;
+        }
+
+        #endregion
+
+        #region Methods
+
+        /// <summary>
+        /// Add customer role and reset customer roles cache
+        /// </summary>
+        /// <param name="role">Role</param>
+        public void AddCustomerRoleMapping(CustomerCustomerRoleMapping role)
+        {
+            CustomerCustomerRoleMappings.Add(role);
+            _customerRoles = null;
+        }
+
+        /// <summary>
+        /// Remove customer role and reset customer roles cache
+        /// </summary>
+        /// <param name="role">Role</param>
+        public void RemoveCustomerRoleMapping(CustomerCustomerRoleMapping role)
+        {
+            CustomerCustomerRoleMappings.Remove(role);
+            _customerRoles = null;
         }
 
         #endregion

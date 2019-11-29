@@ -1,17 +1,19 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Nop.Core;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Orders;
 using Nop.Services.Helpers;
 using Nop.Services.Localization;
 using Nop.Services.Media;
 using Nop.Services.Orders;
-using Nop.Web.Areas.Admin.Extensions;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
+using Nop.Web.Areas.Admin.Models.Discounts;
 using Nop.Web.Areas.Admin.Models.Orders;
-using Nop.Web.Framework.Extensions;
 using Nop.Web.Framework.Factories;
+using Nop.Web.Framework.Models.DataTables;
+using Nop.Web.Framework.Models.Extensions;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -29,7 +31,6 @@ namespace Nop.Web.Areas.Admin.Factories
         private readonly ILocalizedModelFactory _localizedModelFactory;
         private readonly IOrderService _orderService;
         private readonly IReturnRequestService _returnRequestService;
-        private readonly IWorkContext _workContext;
 
         #endregion
 
@@ -41,17 +42,15 @@ namespace Nop.Web.Areas.Admin.Factories
             ILocalizationService localizationService,
             ILocalizedModelFactory localizedModelFactory,
             IOrderService orderService,
-            IReturnRequestService returnRequestService,
-            IWorkContext workContext)
+            IReturnRequestService returnRequestService)
         {
-            this._baseAdminModelFactory = baseAdminModelFactory;
-            this._dateTimeHelper = dateTimeHelper;
-            this._downloadService = downloadService;
-            this._localizationService = localizationService;
-            this._localizedModelFactory = localizedModelFactory;
-            this._orderService = orderService;
-            this._returnRequestService = returnRequestService;
-            this._workContext = workContext;
+            _baseAdminModelFactory = baseAdminModelFactory;
+            _dateTimeHelper = dateTimeHelper;
+            _downloadService = downloadService;
+            _localizationService = localizationService;
+            _localizedModelFactory = localizedModelFactory;
+            _orderService = orderService;
+            _returnRequestService = returnRequestService;
         }
 
         #endregion
@@ -111,18 +110,12 @@ namespace Nop.Web.Areas.Admin.Factories
                 pageIndex: searchModel.Page - 1, pageSize: searchModel.PageSize);
 
             //prepare list model
-            var model = new ReturnRequestListModel
+            var model = new ReturnRequestListModel().PrepareToGrid(searchModel, returnRequests, () =>
             {
-                Data = returnRequests.Select(returnRequest =>
+                return returnRequests.Select(returnRequest =>
                 {
                     //fill in model values from the entity
-                    var returnRequestModel = new ReturnRequestModel
-                    {
-                        Id = returnRequest.Id,
-                        CustomNumber = returnRequest.CustomNumber,
-                        CustomerId = returnRequest.CustomerId,
-                        Quantity = returnRequest.Quantity
-                    };
+                    var returnRequestModel = returnRequest.ToModel<ReturnRequestModel>();
 
                     //convert dates to the user time
                     returnRequestModel.CreatedOn = _dateTimeHelper.ConvertToUserTime(returnRequest.CreatedOnUtc, DateTimeKind.Utc);
@@ -130,8 +123,7 @@ namespace Nop.Web.Areas.Admin.Factories
                     //fill in additional values (not existing in the entity)
                     returnRequestModel.CustomerInfo = returnRequest.Customer.IsRegistered()
                         ? returnRequest.Customer.Email : _localizationService.GetResource("Admin.Customers.Guest");
-                    returnRequestModel.ReturnRequestStatusStr = returnRequest
-                        .ReturnRequestStatus.GetLocalizedEnum(_localizationService, _workContext);
+                    returnRequestModel.ReturnRequestStatusStr = _localizationService.GetLocalizedEnum(returnRequest.ReturnRequestStatus);
                     var orderItem = _orderService.GetOrderItemById(returnRequest.OrderItemId);
                     if (orderItem == null)
                         return returnRequestModel;
@@ -143,9 +135,8 @@ namespace Nop.Web.Areas.Admin.Factories
                     returnRequestModel.CustomOrderNumber = orderItem.Order.CustomOrderNumber;
 
                     return returnRequestModel;
-                }),
-                Total = returnRequests.TotalCount
-            };
+                });
+            });
 
             return model;
         }
@@ -226,15 +217,13 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get return request reasons
-            var reasons = _returnRequestService.GetAllReturnRequestReasons();
+            var reasons = _returnRequestService.GetAllReturnRequestReasons().ToPagedList(searchModel);
 
             //prepare list model
-            var model = new ReturnRequestReasonListModel
+            var model = new ReturnRequestReasonListModel().PrepareToGrid(searchModel, reasons, () =>
             {
-                //fill in model values from the entity
-                Data = reasons.PaginationByRequestModel(searchModel).Select(reason => reason.ToModel()),
-                Total = reasons.Count
-            };
+                return reasons.Select(reason => reason.ToModel<ReturnRequestReasonModel>());
+            });
 
             return model;
         }
@@ -254,15 +243,15 @@ namespace Nop.Web.Areas.Admin.Factories
             if (returnRequestReason != null)
             {
                 //fill in model values from the entity
-                model = model ?? returnRequestReason.ToModel();
-                
+                model = model ?? returnRequestReason.ToModel<ReturnRequestReasonModel>();
+
                 //define localized model configuration action
                 localizedModelConfiguration = (locale, languageId) =>
                 {
-                    locale.Name = returnRequestReason.GetLocalized(entity => entity.Name, languageId, false, false);
+                    locale.Name = _localizationService.GetLocalized(returnRequestReason, entity => entity.Name, languageId, false, false);
                 };
             }
-            
+
             //prepare localized models
             if (!excludeProperties)
                 model.Locales = _localizedModelFactory.PrepareLocalizedModels(localizedModelConfiguration);
@@ -297,15 +286,13 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get return request actions
-            var actions = _returnRequestService.GetAllReturnRequestActions();
+            var actions = _returnRequestService.GetAllReturnRequestActions().ToPagedList(searchModel);
 
             //prepare list model
-            var model = new ReturnRequestActionListModel
+            var model = new ReturnRequestActionListModel().PrepareToGrid(searchModel, actions, () =>
             {
-                //fill in model values from the entity
-                Data = actions.PaginationByRequestModel(searchModel).Select(action => action.ToModel()),
-                Total = actions.Count
-            };
+                return actions.Select(reason => reason.ToModel<ReturnRequestActionModel>());
+            });
 
             return model;
         }
@@ -325,12 +312,12 @@ namespace Nop.Web.Areas.Admin.Factories
             if (returnRequestAction != null)
             {
                 //fill in model values from the entity
-                model = model ?? returnRequestAction.ToModel();
+                model = model ?? returnRequestAction.ToModel<ReturnRequestActionModel>();
 
                 //define localized model configuration action
                 localizedModelConfiguration = (locale, languageId) =>
                 {
-                    locale.Name = returnRequestAction.GetLocalized(entity => entity.Name, languageId, false, false);
+                    locale.Name = _localizationService.GetLocalized(returnRequestAction, entity => entity.Name, languageId, false, false);
                 };
             }
 

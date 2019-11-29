@@ -1,17 +1,23 @@
 ﻿using System;
-using FluentValidation.Attributes;
-using Nop.Web.Areas.Admin.Validators.Catalog;
-using Nop.Web.Framework.Mvc.ModelBinding;
 using Nop.Web.Framework.Models;
+using Nop.Web.Framework.Mvc.ModelBinding;
 
 namespace Nop.Web.Areas.Admin.Models.Catalog
 {
     /// <summary>
     /// Represents a product review model
     /// </summary>
-    [Validator(typeof(ProductReviewValidator))]
     public partial class ProductReviewModel : BaseNopEntityModel
     {
+        #region Ctor
+
+        public ProductReviewModel()
+        {
+            ProductReviewReviewTypeMappingSearchModel = new ProductReviewReviewTypeMappingSearchModel();            
+        }
+
+        #endregion
+
         #region Properties
 
         [NopResourceDisplayName("Admin.Catalog.ProductReviews.Fields.Store")]
@@ -49,6 +55,8 @@ namespace Nop.Web.Areas.Admin.Models.Catalog
 
         //vendor
         public bool IsLoggedInAsVendor { get; set; }
+
+        public ProductReviewReviewTypeMappingSearchModel ProductReviewReviewTypeMappingSearchModel { get; set; }
 
         #endregion
     }

@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Routing;
-using Nop.Core.Domain.Cms;
+using Nop.Core;
 using Nop.Services.Cms;
-using Nop.Web.Areas.Admin.Extensions;
+using Nop.Web.Areas.Admin.Infrastructure.Mapper.Extensions;
 using Nop.Web.Areas.Admin.Models.Cms;
-using Nop.Web.Framework.Extensions;
+using Nop.Web.Framework.Models.Extensions;
 
 namespace Nop.Web.Areas.Admin.Factories
 {
@@ -17,18 +17,18 @@ namespace Nop.Web.Areas.Admin.Factories
     {
         #region Fields
 
-        private readonly IWidgetService _widgetService;
-        private readonly WidgetSettings _widgetSettings;
+        private readonly IWidgetPluginManager _widgetPluginManager;
+        private readonly IWorkContext _workContext;
 
         #endregion
 
         #region Ctor
 
-        public WidgetModelFactory(IWidgetService widgetService,
-            WidgetSettings widgetSettings)
+        public WidgetModelFactory(IWidgetPluginManager widgetPluginManager,
+            IWorkContext workContext)
         {
-            this._widgetService = widgetService;
-            this._widgetSettings = widgetSettings;
+            _widgetPluginManager = widgetPluginManager;
+            _workContext = workContext;
         }
 
         #endregion
@@ -62,24 +62,25 @@ namespace Nop.Web.Areas.Admin.Factories
                 throw new ArgumentNullException(nameof(searchModel));
 
             //get widgets
-            var widgets = _widgetService.LoadAllWidgets();
+            var widgets = _widgetPluginManager.LoadAllPlugins()
+                .Where(widget => !widget.HideInWidgetList).ToList()
+                .ToPagedList(searchModel);
 
             //prepare grid model
-            var model = new WidgetListModel
+            var model = new WidgetListModel().PrepareToGrid(searchModel, widgets, () =>
             {
-                Data = widgets.PaginationByRequestModel(searchModel).Select(widget =>
+                return widgets.Select(widget =>
                 {
                     //fill in model values from the entity
-                    var widgetMethodModel = widget.ToModel();
+                    var widgetMethodModel = widget.ToPluginModel<WidgetModel>();
 
                     //fill in additional values (not existing in the entity)
-                    widgetMethodModel.IsActive = widget.IsWidgetActive(_widgetSettings);
+                    widgetMethodModel.IsActive = _widgetPluginManager.IsPluginActive(widget);
                     widgetMethodModel.ConfigurationUrl = widget.GetConfigurationPageUrl();
 
                     return widgetMethodModel;
-                }),
-                Total = widgets.Count
-            };
+                });
+            });
 
             return model;
         }
@@ -92,21 +93,14 @@ namespace Nop.Web.Areas.Admin.Factories
         /// <returns>List of render widget models</returns>
         public virtual IList<RenderWidgetModel> PrepareRenderWidgetModels(string widgetZone, object additionalData = null)
         {
-            //add widget zone to view component arguments
-            additionalData = new RouteValueDictionary
-            {
-                { "widgetZone", widgetZone },
-                { "additionalData", additionalData }
-            };
-
             //get active widgets by widget zone
-            var widgets = _widgetService.LoadActiveWidgetsByWidgetZone(widgetZone);
+            var widgets = _widgetPluginManager.LoadActivePlugins(_workContext.CurrentCustomer, widgetZone: widgetZone);
 
             //prepare models
             var models = widgets.Select(widget => new RenderWidgetModel
             {
                 WidgetViewComponentName = widget.GetWidgetViewComponentName(widgetZone),
-                WidgetViewComponentArguments = additionalData
+                WidgetViewComponentArguments = new RouteValueDictionary { ["widgetZone"] = widgetZone, ["additionalData"] = additionalData }
             }).ToList();
 
             return models;
